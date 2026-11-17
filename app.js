@@ -45,7 +45,7 @@ $('passOk').onclick = () => {
   api('appConfig').then(c => { saveCfg(c); showNames(); }, e => { if (!$('passStep').hidden) $('passMsg').textContent = e.message; })
     .finally(() => $('passOk').disabled = false);
 };
-$('passIn').onkeydown = e => { if (e.key === 'Enter') $('passOk').click(); };
+$('passIn').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) $('passOk').click(); };
 
 function showNames() {
   $('shell').hidden = true; $('login').hidden = false; $('passStep').hidden = true; $('nameStep').hidden = false;

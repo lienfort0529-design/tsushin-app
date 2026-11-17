@@ -32,6 +32,21 @@
     <div id="nameStep" hidden>
       <p>あなたの名前を選んでください</p>
       <div id="nameList"></div>
+      <button class="adminEntry" id="nameAdmin">管理者</button>
+    </div>
+    <!-- 名前選びから管理者に：合言葉 → 管理者のみ／自分の名前も選ぶ -->
+    <div id="adminStep" hidden>
+      <p id="adminMsg">管理者の合言葉を入れてください</p>
+      <input type="text" id="adminPassIn" placeholder="管理者の合言葉" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button id="adminPassOk" class="goldbtn">次へ</button>
+      <button class="backlink" id="adminBack">← 名前の選択にもどる</button>
+    </div>
+    <div id="adminWhoStep" hidden>
+      <p>管理者になりました。使い方を選んでください</p>
+      <button class="goldbtn" id="adminOnly">管理者のみで使う</button>
+      <small class="hint">カウンターは使わず、管理者画面・顧客進捗・ランキング・KPIを見る</small>
+      <p style="margin-top:18px">自分の名前でカウンターも使うときは名前を選ぶ</p>
+      <div id="adminNameList" class="nameGrid"></div>
     </div>
   </div>
 </div>

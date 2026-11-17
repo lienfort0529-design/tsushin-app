@@ -303,3 +303,14 @@ body.busy #overlay { display: flex; }
 .stats3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
 .stats3 .card { padding: 10px 12px; }
 @media (max-width: 599px) { .stats3 .stat b { font-size: 22px; } .stats3 .stat small { font-size: 10px; } }
+
+/* 名前選びの「管理者」 */
+.adminEntry { width: 100%; margin-top: 16px; padding: 12px; border-radius: 10px; border: 1px dashed rgba(201,162,60,.7); background: none; color: var(--gold); font-size: 15px; letter-spacing: .1em; }
+#login .goldbtn { width: 100%; margin-top: 12px; padding: 14px; font-size: 16px; font-weight: 700; border: 0; border-radius: 10px; background: var(--gold); color: var(--ink); letter-spacing: .05em; }
+#login .backlink { margin-top: 14px; border: 0; background: none; color: #cfd2d8; font-size: 13px; text-decoration: underline; }
+#login .hint { display: block; margin-top: 6px; font-size: 12px; letter-spacing: 0; color: #9aa6b4; font-family: inherit; }
+.nameGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 40vh; overflow: auto; }
+.nameGrid button { padding: 12px 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.06); color: #fff; font-size: 15px; }
+#nameList { max-height: 50vh; }
+body.admin-only [data-v="counter"] { display: none !important; }
+body.admin-only #tabs { grid-template-columns: repeat(4, 1fr); }

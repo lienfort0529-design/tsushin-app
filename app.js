@@ -24,7 +24,7 @@ function api(fn, ...args) {
     .then(r => r.json())
     .then(r => {
       if (r.auth) { const had = !!store.get(KEY.pass, ''); store.del(KEY.pass); showPass(had ? '合言葉が違います（変わったかもしれません）' : ''); throw new Error('合言葉を入れてください'); }
-      if (r.adminAuth) { const had = isAdmin(); store.del(KEY.admin); setAdminUI(); if (view === 'admin') drawAdmin(had ? '管理者の合言葉が違います（変わったかもしれません）' : ''); throw new Error('管理者だけができます'); }
+      if (r.adminAuth) { const had = isAdmin(); store.del(KEY.admin); setAdminUI(); if (adminOnly()) { me = ''; store.del(KEY.name); showNames(); } if (view === 'admin') drawAdmin(had ? '管理者の合言葉が違います（変わったかもしれません）' : ''); throw new Error('管理者だけができます'); }
       if (r.error) throw new Error(r.error);
       return r.result;
     });
@@ -34,7 +34,7 @@ function api(fn, ...args) {
 let cfg = store.get(KEY.cfg, null), me = store.get(KEY.name, '');
 
 function showPass(msg) {
-  $('shell').hidden = true; $('login').hidden = false; $('passStep').hidden = false; $('nameStep').hidden = true;
+  loginStep('passStep');
   $('passMsg').textContent = msg || 'チームの合言葉を入れてください';
   $('passIn').value = ''; setTimeout(() => $('passIn').focus(), 50);
 }
@@ -48,10 +48,29 @@ $('passOk').onclick = () => {
 };
 $('passIn').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) $('passOk').click(); };
 
+// 名前選びの画面。下の「管理者」から、管理者の合言葉を入れて「管理者のみ」か「自分の名前＋管理者」で使える
+const ADMIN_ONLY = '（管理者）';
+const adminOnly = () => me === ADMIN_ONLY;
+function loginStep(id) { $('shell').hidden = true; $('login').hidden = false; ['passStep', 'nameStep', 'adminStep', 'adminWhoStep'].forEach(x => $(x).hidden = x !== id); }
 function showNames() {
-  $('shell').hidden = true; $('login').hidden = false; $('passStep').hidden = true; $('nameStep').hidden = false;
+  loginStep('nameStep');
   $('nameList').innerHTML = cfg.names.map(n => '<button>' + esc(n) + '</button>').join('');
   $('nameList').querySelectorAll('button').forEach((b, i) => b.onclick = () => { me = cfg.names[i]; store.set(KEY.name, me); start(); });
+}
+$('nameAdmin').onclick = () => { if (isAdmin()) return showAdminWho(); loginStep('adminStep'); $('adminMsg').textContent = '管理者の合言葉を入れてください'; $('adminPassIn').value = ''; setTimeout(() => $('adminPassIn').focus(), 50); };
+$('adminBack').onclick = showNames;
+$('adminPassOk').onclick = () => {
+  const v = $('adminPassIn').value.trim(); if (!v) return;
+  store.set(KEY.admin, v); $('adminPassOk').disabled = true; $('adminMsg').textContent = '確認中…';
+  api('adminCheck').then(() => { setAdminUI(); showAdminWho(); }, e => { store.del(KEY.admin); setAdminUI(); $('adminMsg').textContent = e.message === '管理者だけができます' ? '管理者の合言葉が違います' : e.message; })
+    .finally(() => $('adminPassOk').disabled = false);
+};
+$('adminPassIn').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) $('adminPassOk').click(); };
+function showAdminWho() {
+  loginStep('adminWhoStep');
+  $('adminNameList').innerHTML = cfg.names.map(n => '<button>' + esc(n) + '</button>').join('');
+  $('adminNameList').querySelectorAll('button').forEach((b, i) => b.onclick = () => { me = cfg.names[i]; store.set(KEY.name, me); start(); });
+  $('adminOnly').onclick = () => { me = ADMIN_ONLY; store.set(KEY.name, me); view = 'admin'; start(); };
 }
 
 function saveCfg(c) { cfg = c; store.set(KEY.cfg, c); }
@@ -75,6 +94,7 @@ function buildNav() {
 }
 
 function go(v) {
+  if (adminOnly() && v === 'counter') v = 'admin';
   view = v; store.set(KEY.view, v);
   VIEWS.forEach(([k]) => $('v-' + k).hidden = k !== v);
   document.querySelectorAll('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === v));
@@ -95,7 +115,9 @@ document.addEventListener('click', e => {
 
 function start() {
   $('login').hidden = true; $('shell').hidden = false;
-  $('meTop').textContent = me; $('meSide').textContent = me + ' さん';
+  // 管理者のみ：カウンターは出さない
+  document.body.classList.toggle('admin-only', adminOnly());
+  $('meTop').textContent = adminOnly() ? '管理者' : me; $('meSide').textContent = adminOnly() ? '管理者' : me + ' さん';
   setupCounter();
   go(VIEWS.some(x => x[0] === view) ? view : 'counter');
   flush();
@@ -639,7 +661,7 @@ function drawAdmin(msg) {
   box.innerHTML = '<div class="adminHead">' + segBtns([['today', '今日の進み具合'], ['members', 'メンバー'], ['goals', '目標']], adminTab, 'data-at') +
     '<button class="link3" id="adminOut">管理者をやめる</button></div><div id="adminPane"><div class="loading">読み込み中…</div></div>';
   box.querySelectorAll('[data-at]').forEach(b => b.onclick = () => { adminTab = b.dataset.at; drawAdmin(); });
-  $('adminOut').onclick = () => ask('このスマホ・パソコンの管理者をやめますか？').then(ok => { if (ok) { store.del(KEY.admin); setAdminUI(); drawAdmin(); } });
+  $('adminOut').onclick = () => ask('このスマホ・パソコンの管理者をやめますか？').then(ok => { if (!ok) return; store.del(KEY.admin); setAdminUI(); if (adminOnly()) { me = ''; store.del(KEY.name); showNames(); } else drawAdmin(); });
   const fail = e => { if ($('adminPane')) $('adminPane').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; };
   if (adminTab === 'today') api('todayBoard').then(drawBoard, fail);
   if (adminTab === 'members') api('memberList').then(drawMembers, fail);
@@ -709,12 +731,14 @@ function drawGoals(g) {
 }
 
 // ===== はじまり =====
+// 名前が今のメンバーにいるか（管理者のみは管理者の合言葉があるとき）
+function okName(c) { return me && (c.names.includes(me) || (me === ADMIN_ONLY && isAdmin())); }
 buildNav();
 setAdminUI();
 if (!store.get(KEY.pass, '')) showPass();
-else if (!cfg) api('appConfig').then(c => { saveCfg(c); me && c.names.includes(me) ? start() : showNames(); }, e => { if ($('login').hidden) showPass(e.message); });
+else if (!cfg) api('appConfig').then(c => { saveCfg(c); okName(c) ? start() : showNames(); }, e => { if ($('login').hidden) showPass(e.message); });
 else {
-  me && cfg.names.includes(me) ? start() : showNames();
+  okName(cfg) ? start() : showNames();
   api('appConfig').then(c => { const changed = JSON.stringify(c) !== JSON.stringify(cfg); saveCfg(c); if (changed) { built = false; filled = false; if (!$('shell').hidden) { setupCounter(); } } }, () => {});
 }
 

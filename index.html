@@ -94,6 +94,12 @@
       <div class="seg" id="kpiMode"><button data-m="all" class="on">全員</button><button data-m="one">一人ずつ</button></div>
       <div id="kpiBody" ><div class="loading">読み込み中…</div></div>
     </section>
+
+    <!-- 管理者 -->
+    <section id="v-admin" class="view" hidden>
+      <div class="head"><h1>管理者</h1><button class="reload" data-act="reload">更新</button></div>
+      <div id="adminBody"></div>
+    </section>
   </main>
 
   <nav id="tabs"></nav>
@@ -147,6 +153,7 @@
   </div>
   <label>メモ<textarea id="e-memo" rows="3"></textarea></label>
   <div class="err" id="cbErr"></div>
+  <p class="sub" id="cbRO" hidden style="margin:6px 0 0">更新は管理者だけができます（「管理者」画面でログイン）</p>
   <div class="btns"><button id="cbCancel">閉じる</button><button class="ok" id="cbOk">保存</button></div>
 </div></div>
 

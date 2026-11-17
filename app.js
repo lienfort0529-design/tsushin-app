@@ -3,7 +3,7 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbzALOLUN8rAom2b6fXmlA0zV5raPXSY-KrRAtZnPNrxznetLprUi687Jy6v0dgKTxzz/exec';
 
 // スマホに覚えておくもの（住宅設備アプリと同じ場所に入るので、名前の頭に hk を付けて分ける）
-const KEY = { pass: 'hkPass', name: 'hkName', queue: 'hkQueue', cfg: 'hkCfg', view: 'hkView', goal: 'hkGoal' };
+const KEY = { pass: 'hkPass', name: 'hkName', queue: 'hkQueue', cfg: 'hkCfg', view: 'hkView', goal: 'hkGoal', admin: 'hkAdmin' };
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
@@ -19,11 +19,12 @@ const toast = t => { const e = $('toast'); e.textContent = t; e.classList.add('s
 // text/plain で送ると、ブラウザの事前確認（CORS）が要らない
 function api(fn, ...args) {
   return fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ fn: fn, args: args, pass: store.get(KEY.pass, '') }) })
+    body: JSON.stringify({ fn: fn, args: args, pass: store.get(KEY.pass, ''), admin: store.get(KEY.admin, '') }) })
     .catch(() => { throw new Error('通信できません（電波を確認してください）'); })
     .then(r => r.json())
     .then(r => {
       if (r.auth) { const had = !!store.get(KEY.pass, ''); store.del(KEY.pass); showPass(had ? '合言葉が違います（変わったかもしれません）' : ''); throw new Error('合言葉を入れてください'); }
+      if (r.adminAuth) { const had = isAdmin(); store.del(KEY.admin); setAdminUI(); if (view === 'admin') drawAdmin(had ? '管理者の合言葉が違います（変わったかもしれません）' : ''); throw new Error('管理者だけができます'); }
       if (r.error) throw new Error(r.error);
       return r.result;
     });
@@ -60,9 +61,10 @@ const ICON = {
   counter: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg>',
   cust: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
   rank: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></svg>',
+  admin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>',
   kpi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
 };
-const VIEWS = [['counter', 'カウンター'], ['cust', '顧客進捗'], ['rank', 'ランキング'], ['kpi', '個人成績・KPI']];
+const VIEWS = [['counter', 'カウンター'], ['cust', '顧客進捗'], ['rank', 'ランキング'], ['kpi', '個人成績・KPI'], ['admin', '管理者']];
 let view = store.get(KEY.view, 'counter');
 
 function buildNav() {
@@ -81,13 +83,14 @@ function go(v) {
   if (v === 'counter') loadToday();
   if (v === 'cust') loadCust();
   if (v === 'rank' || v === 'kpi') loadStats();
+  if (v === 'admin') drawAdmin();
 }
 
 document.addEventListener('click', e => {
   const a = e.target.closest('[data-act]');
   if (!a) return;
   if (a.dataset.act === 'rename') showNames();
-  if (a.dataset.act === 'reload') { if (view === 'cust') loadCust(true); else loadStats(true); }
+  if (a.dataset.act === 'reload') { if (view === 'cust') loadCust(true); else if (view === 'admin') drawAdmin(); else loadStats(true); }
 });
 
 function start() {
@@ -365,6 +368,10 @@ function openCust(c) {
     if (el.tagName === 'SELECT' && c[k] && ![...el.options].some(o => o.value === c[k])) el.add(new Option(c[k], c[k]));
     el.value = c[k] || '';
   });
+  // 更新は管理者だけ。管理者でなければ見るだけ
+  const ro = !isAdmin();
+  EDIT.forEach(k => $('e-' + k).disabled = ro);
+  $('cbOk').hidden = ro; $('cbRO').hidden = !ro;
   $('cbErr').textContent = '';
   $('custBox').classList.add('open');
 }
@@ -607,8 +614,103 @@ function drawChart(dd, s, e) {
 // 開いたままでも1分ごとに集計を新しくする（見ている画面だけ）
 setInterval(() => { if (!document.hidden && (view === 'rank' || view === 'kpi')) loadStats(); if (!document.hidden && view === 'cust') loadCust(); }, 60000);
 
+// ===== 管理者 =====
+// 管理者の合言葉（スクリプト プロパティ ADMIN_PASS）を入れたスマホ・パソコンだけ管理者になる。
+// できること：全員の今日の進み具合／メンバーの追加・在籍・月の目標／チーム目標・率の目標／顧客進捗の更新
+const isAdmin = () => !!store.get(KEY.admin, '');
+let adminTab = 'today';
+function setAdminUI() { document.body.classList.toggle('is-admin', isAdmin()); }
+
+function drawAdmin(msg) {
+  const box = $('adminBody');
+  if (!isAdmin()) {
+    box.innerHTML = '<div class="card adminLogin"><h2>管理者ログイン</h2><p class="sub">管理者の合言葉を入れると、このスマホ・パソコンが管理者になります。</p>' +
+      '<input type="text" id="adminIn" placeholder="管理者の合言葉" autocomplete="off" autocapitalize="off" spellcheck="false"><div class="err">' + esc(msg || '') + '</div>' +
+      '<button class="okbtn" id="adminOk">ログイン</button></div>';
+    const go2 = () => {
+      const v = $('adminIn').value.trim(); if (!v) return;
+      store.set(KEY.admin, v); $('adminOk').disabled = true;
+      api('adminCheck').then(() => { setAdminUI(); toast('管理者になりました'); drawAdmin(); }, e => { if (isAdmin()) { store.del(KEY.admin); drawAdmin(e.message); } });
+    };
+    $('adminOk').onclick = go2;
+    $('adminIn').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) go2(); };
+    return;
+  }
+  box.innerHTML = '<div class="adminHead">' + segBtns([['today', '今日の進み具合'], ['members', 'メンバー'], ['goals', '目標']], adminTab, 'data-at') +
+    '<button class="link3" id="adminOut">管理者をやめる</button></div><div id="adminPane"><div class="loading">読み込み中…</div></div>';
+  box.querySelectorAll('[data-at]').forEach(b => b.onclick = () => { adminTab = b.dataset.at; drawAdmin(); });
+  $('adminOut').onclick = () => ask('このスマホ・パソコンの管理者をやめますか？').then(ok => { if (ok) { store.del(KEY.admin); setAdminUI(); drawAdmin(); } });
+  const fail = e => { if ($('adminPane')) $('adminPane').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; };
+  if (adminTab === 'today') api('todayBoard').then(drawBoard, fail);
+  if (adminTab === 'members') api('memberList').then(drawMembers, fail);
+  if (adminTab === 'goals') api('goalsGet').then(drawGoals, fail);
+}
+
+// 全員の今日の目標と進み具合
+function drawBoard(r) {
+  const p = $('adminPane'); if (!p || adminTab !== 'today') return;
+  const set = r.rows.filter(x => x.goal).length, done = r.rows.filter(x => x.goal && x.visit >= x.goal.visit && x.won >= x.goal.won).length;
+  const tv = r.rows.reduce((a, x) => a + x.visit, 0), tw = r.rows.reduce((a, x) => a + x.won, 0);
+  const cell = (now, goal, unit) => goal == null ? '<span class="sub">' + now + unit + '</span>' :
+    '<div class="bt"><b>' + now + '</b> / ' + goal + unit + (now >= goal ? ' <span class="badge green">達成</span>' : ' <span class="sub">あと' + (goal - now) + '</span>') + '</div>' + bar(now, goal);
+  const rows = r.rows.map(x => '<div class="brow' + (x.goal ? '' : ' none') + '"><div class="bn"><b>' + esc(x.name) + '</b>' + (x.goal ? '' : '<span class="badge yellow">目標まだ</span>') + '</div>' +
+    '<div class="bc"><small>訪問</small>' + cell(x.visit, x.goal && x.goal.visit, '軒') + '</div><div class="bc"><small>獲得</small>' + cell(x.won, x.goal && x.goal.won, '件') + '</div></div>').join('');
+  p.innerHTML = '<div class="stats3">' +
+    '<div class="card stat"><small>目標を入れた人</small><b>' + set + '<span> / ' + r.rows.length + '人</span></b></div>' +
+    '<div class="card stat"><small>目標を達成した人</small><b>' + done + '<span>人</span></b></div>' +
+    '<div class="card stat"><small>チームの今日</small><b>' + tv + '<span>軒</span> ' + tw + '<span>件</span></b></div></div>' +
+    '<div class="card board"><h2>' + md(r.today) + ' の進み具合 <span class="sub">在籍のメンバー</span></h2>' + (rows || '<div class="empty">在籍のメンバーがいません</div>') + '</div>';
+}
+
+// メンバー：追加・在籍の切替・月の目標
+function drawMembers(list) {
+  const p = $('adminPane'); if (!p || adminTab !== 'members') return;
+  const num = (cls, v) => '<input type="number" inputmode="numeric" min="0" class="' + cls + '" value="' + esc(v) + '">';
+  const row = (m, i) => '<div class="mrow' + (m.active ? '' : ' off') + '" data-i="' + i + '"><div class="mn"><b>' + esc(m.name) + '</b>' +
+    '<label class="sw"><input type="checkbox" class="ma"' + (m.active ? ' checked' : '') + '> 在籍</label></div>' +
+    '<div class="mg"><label>訪問' + num('mv', m.visit) + '</label><label>獲得' + num('mw', m.won) + '</label><label>開通' + num('mo', m.opened) + '</label></div>' +
+    '<button class="okbtn small ms">保存</button></div>';
+  p.innerHTML = '<div class="card"><h2>メンバーを追加</h2><div class="madd"><input type="text" id="nmName" placeholder="名前（例：山田太郎）">' +
+    '<div class="mg"><label>訪問' + num('', '').replace('class=""', 'id="nmV"') + '</label><label>獲得' + num('', '').replace('class=""', 'id="nmW"') + '</label><label>開通' + num('', '').replace('class=""', 'id="nmO"') + '</label></div>' +
+    '<button class="okbtn" id="nmAdd">追加</button></div><p class="sub" style="margin:8px 0 0">数字は月の目標（空でもよい）。追加した人は在籍になり、次にアプリを開いたときから名前に出ます。</p></div>' +
+    '<div class="card" style="margin-top:12px"><h2>メンバー</h2><p class="sub" style="margin:-6px 0 4px">在籍を外すとアプリに出なくなります（記録は残る）。名前は変えられません</p>' + list.map(row).join('') + '</div>';
+  const after = l => { toast('保存しました'); statsAt = 0; api('appConfig').then(c => { saveCfg(c); built = false; filled = false; }, () => {}); drawMembers(l); };
+  $('nmAdd').onclick = () => {
+    const name = $('nmName').value.trim(); if (!name) { toast('名前を入れてください'); return; }
+    $('nmAdd').disabled = true;
+    api('memberSave', { isNew: true, name, active: true, visit: $('nmV').value, won: $('nmW').value, opened: $('nmO').value }).then(after, e => { toast(e.message); $('nmAdd').disabled = false; });
+  };
+  p.querySelectorAll('.mrow').forEach(el => {
+    const m = list[Number(el.dataset.i)], q = c => el.querySelector(c);
+    q('.ms').onclick = () => {
+      q('.ms').disabled = true;
+      api('memberSave', { name: m.name, active: q('.ma').checked, visit: q('.mv').value, won: q('.mw').value, opened: q('.mo').value })
+        .then(after, e => { toast(e.message); q('.ms').disabled = false; });
+    };
+  });
+}
+
+// チーム目標と率の目標
+function drawGoals(g) {
+  const p = $('adminPane'); if (!p || adminTab !== 'goals') return;
+  const pc = v => v === '' ? '' : Math.round(v * 1000) / 10;
+  const f = (id, label, v, unit) => '<label>' + label + '<div class="unit"><input type="number" inputmode="decimal" min="0" id="' + id + '" value="' + esc(v) + '"><span>' + unit + '</span></div></label>';
+  p.innerHTML = '<div class="cards c2"><div class="card"><h2>チーム目標（月）</h2><div class="gform">' + f('gTw', '獲得', g.won, '件') + f('gTo', '開通', g.opened, '件') + '</div>' +
+    '<p class="sub">ランキングの「チーム目標」のバーと、KPIのチーム合計の達成率に使います。</p></div>' +
+    '<div class="card"><h2>率の目標（全員共通）</h2><div class="gform">' + f('gFa', '対面率', pc(g.face), '%') + f('gTa', '提案率', pc(g.talk), '%') + f('gCl', '成約率', pc(g.close), '%') + '</div>' +
+    '<p class="sub">KPIの率の色分け（緑＝目標達成）に使います。</p></div></div>' +
+    '<p class="sub">一人ずつの月の目標は「メンバー」で入れます。</p><button class="okbtn" id="gSave">保存</button>';
+  const r = id => { const v = $(id).value.trim(); return v === '' ? '' : Number(v) / 100; };
+  $('gSave').onclick = () => {
+    $('gSave').disabled = true;
+    api('goalsSave', { won: $('gTw').value.trim(), opened: $('gTo').value.trim(), face: r('gFa'), talk: r('gTa'), close: r('gCl') })
+      .then(x => { toast('保存しました'); statsAt = 0; drawGoals(x); }, e => { toast(e.message); $('gSave').disabled = false; });
+  };
+}
+
 // ===== はじまり =====
 buildNav();
+setAdminUI();
 if (!store.get(KEY.pass, '')) showPass();
 else if (!cfg) api('appConfig').then(c => { saveCfg(c); me && c.names.includes(me) ? start() : showNames(); }, e => { if ($('login').hidden) showPass(e.message); });
 else {

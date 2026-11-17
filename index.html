@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="通信インフラ">
+<meta name="theme-color" content="#18202e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>通信インフラ</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500&family=Shippori+Mincho+B1:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<!-- ロゴ（lienfort.co.jp の白い版）。use で使い回す -->
+<svg width="0" height="0" style="position:absolute"><symbol id="mk" viewBox="345 157 536 536"><path fill="#fff" d="M355 425 613 167 846 399H742L716 374 613 477H510L665 322 613 271 458 425Z"/><path fill="#fff" opacity=".55" d="M407 425H458L484 451H381ZM742 399H846L820 425H767Z"/><path fill="#fff" opacity=".8" d="M381 451H484L613 579 767 425H871L613 683Z"/></symbol></svg>
+
+<!-- 最初の画面：合言葉 → 名前 -->
+<div id="login" hidden>
+  <div class="box">
+    <svg class="mk"><use href="#mk"/></svg>
+    <small>LIEN FORT</small>
+    <b>通信インフラ</b>
+    <div id="passStep">
+      <p id="passMsg">チームの合言葉を入れてください</p>
+      <input type="password" id="passIn" placeholder="合言葉" autocomplete="current-password">
+      <button id="passOk">はじめる</button>
+    </div>
+    <div id="nameStep" hidden>
+      <p>あなたの名前を選んでください</p>
+      <div id="nameList"></div>
+    </div>
+  </div>
+</div>
+
+<div id="shell" hidden>
+  <aside id="side">
+    <div class="brand"><svg class="mk"><use href="#mk"/></svg><div><small>LIEN FORT</small><b>通信インフラ</b></div></div>
+    <nav id="sideNav"></nav>
+    <div class="me"><span id="meSide"></span><button class="link" data-act="rename">名前を変える</button></div>
+  </aside>
+
+  <header id="top">
+    <svg class="mk"><use href="#mk"/></svg>
+    <b id="topTitle">カウンター</b>
+    <button class="chip" data-act="rename" id="meTop"></button>
+  </header>
+
+  <main>
+    <!-- カウンター -->
+    <section id="v-counter" class="view">
+      <div class="head"><h1>カウンター</h1><span class="sub" id="cDate"></span></div>
+      <div class="counter">
+        <div class="summary">
+          <div>訪問<b id="knock">0</b></div>
+          <div>対面<b id="face">0</b></div>
+          <div>提案<b id="talk">0</b></div>
+          <div>獲得<b id="apo">0</b></div>
+        </div>
+        <div id="prodToday"></div>
+        <div class="grid" id="grid"></div>
+        <button class="undo" id="undo">↩ 直前を取り消す</button>
+        <div id="msg"></div>
+        <div id="pending"></div>
+      </div>
+    </section>
+
+    <!-- 顧客進捗 -->
+    <section id="v-cust" class="view" hidden>
+      <div class="head"><h1>顧客進捗</h1><span class="sub" id="custCount"></span><button class="reload" data-act="reload">更新</button></div>
+      <div class="filters">
+        <input type="search" id="fText" placeholder="お客様名・カナで探す">
+        <select id="fStaff"><option value="">担当：全員</option></select>
+        <select id="fEntry"><option value="">エントリー：全部</option><option value="-">（未入力）</option></select>
+        <select id="fProd"><option value="">商材：全部</option></select>
+        <select id="fOpen"><option value="">開通：全部</option><option value="1">開通済み</option><option value="0">未開通</option><option value="x">キャンセル</option></select>
+      </div>
+      <div id="custBody" ><div class="loading">読み込み中…</div></div>
+    </section>
+
+    <!-- ランキング -->
+    <section id="v-rank" class="view" hidden>
+      <div class="head"><h1>ランキング</h1><button class="reload" data-act="reload">更新</button></div>
+      <div id="rankBody" ><div class="loading">読み込み中…</div></div>
+    </section>
+
+    <!-- 個人成績・KPI -->
+    <section id="v-kpi" class="view" hidden>
+      <div class="head"><h1>個人成績・KPI</h1><button class="reload" data-act="reload">更新</button></div>
+      <div class="seg" id="kpiMode"><button data-m="all" class="on">全員</button><button data-m="one">一人ずつ</button></div>
+      <div id="kpiBody" ><div class="loading">読み込み中…</div></div>
+    </section>
+  </main>
+
+  <nav id="tabs"></nav>
+</div>
+
+<!-- 獲得の入力 -->
+<div class="modal" id="appBox"><div class="box">
+  <h3>獲得を登録</h3>
+  <label>申込日<input type="date" id="appDate"></label>
+  <label>商材<select id="product"><option value="">選んでください</option></select></label>
+  <label>お客様名<input type="text" id="customer" placeholder="例：山田 太郎"></label>
+  <div class="two">
+    <label>セイ（カナ）<input type="text" id="sei" placeholder="ヤマダ"></label>
+    <label>メイ（カナ）<input type="text" id="mei" placeholder="タロウ"></label>
+  </div>
+  <div class="err" id="appErr"></div>
+  <div class="btns"><button id="appCancel">やめる</button><button class="ok red" id="appOk">登録</button></div>
+</div></div>
+
+<!-- 顧客進捗 1件の更新 -->
+<div class="modal" id="custBox"><div class="box wide">
+  <h3 id="cbName"></h3>
+  <div class="cbInfo" id="cbInfo"></div>
+  <div class="two">
+    <label>【エントリーステータス】<select id="e-entry"><option value="">（未入力）</option></select></label>
+    <label>エントリー日<input type="date" id="e-entryDate"></label>
+  </div>
+  <div class="two">
+    <label>ジャンパ工事予定日<input type="date" id="e-jumper"></label>
+    <label>【回線】契約ステータス<select id="e-line"><option value="">（未入力）</option></select></label>
+  </div>
+  <div class="two">
+    <label>【NET】締結年月日<input type="date" id="e-netDate"></label>
+    <label>【NET】課金開始日<input type="date" id="e-billDate"></label>
+  </div>
+  <div class="two">
+    <label>工事完了日（＝開通）<input type="date" id="e-done"></label>
+    <span></span>
+  </div>
+  <label>メモ<textarea id="e-memo" rows="3"></textarea></label>
+  <div class="err" id="cbErr"></div>
+  <div class="btns"><button id="cbCancel">閉じる</button><button class="ok" id="cbOk">保存</button></div>
+</div></div>
+
+<!-- 確認 -->
+<div class="modal" id="askBox"><div class="box">
+  <p id="askText"></p>
+  <div class="btns"><button id="askNo">やめる</button><button class="ok" id="askYes">はい</button></div>
+</div></div>
+
+<div id="overlay"><div class="spinner"></div><span id="overlayText">記録中…</span></div>
+<div id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

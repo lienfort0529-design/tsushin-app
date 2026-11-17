@@ -317,7 +317,7 @@ $('cbOk').onclick = () => {
 };
 
 // ===== 集計（ランキング・KPI） =====
-let S = null, statsAt = 0, rankP = 'month', kpiP = 'month', kpiMode = 'all', kpiWho = '', kpiMonth = 'month';
+let S = null, statsAt = 0, rankP = 'month', kpiMode = 'all', kpiWho = '', kpiUnit = 'month', kpiOff = 0;
 const RI = r => S.results.indexOf(r);
 
 function loadStats(force) {
@@ -388,45 +388,114 @@ function drawRank() {
 $('kpiMode').querySelectorAll('button').forEach(b => b.onclick = () => {
   kpiMode = b.dataset.m; $('kpiMode').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if (S) drawKpi();
 });
-function drawKpi() { if (kpiMode === 'all') drawKpiAll(); else drawKpiOne(); }
+function drawKpi() {
+  if (kpiMode === 'one' && (kpiUnit === 'day' || kpiUnit === 'year')) { kpiUnit = 'month'; kpiOff = 0; }
+  const P = kpiPeriod();
+  if (!P.src) { $('kpiBody').innerHTML = periodBar(P) + '<div class="loading">読み込み中…</div>'; bindPeriod(); return; }
+  if (kpiMode === 'all') drawKpiAll(P); else drawKpiOne(P);
+}
 
-function drawKpiAll() {
-  const p = kpiP, monthly = p === 'month' || p === 'prev', act = S.active, rg = S.goals.rate;
-  const team = kpi(sumOf(act, p)), mg = S.goals.member;
-  const teamGoal = { visit: act.reduce((s, n) => s + (mg[n] && mg[n].visit || 0), 0) || null, won: S.goals.team.won, opened: S.goals.team.opened };
-  const rows = act.map(n => ({ n, k: kpi(get(n, p)), g: mg[n] || {} }));
+// 日付（yyyy-MM-dd）の計算
+const dkey = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const dof = k => new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)) - 1, Number(k.slice(8, 10)));
+const addDays = (k, n) => { const d = dof(k); d.setDate(d.getDate() + n); return dkey(d); };
+const dim = k => new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)), 0).getDate(); // その月の日数
+
+// どの月・どの週でも：今の選び方（kpiUnit・kpiOff）の期間と、その数字のもと（src）
+// 今週・今月・先月・今日・年間は stats の分を使い、それ以外は API に期間を指定して読む（statsRange）
+const RC = {};
+function kpiPeriod() {
+  const t = S.today, u = kpiUnit, o = kpiOff;
+  let s, e, full, key, label;
+  if (u === 'day' || u === 'year') { key = u; s = S.periods[u].s; e = S.periods[u].e; label = u === 'day' ? '今日 ' + md(s) : s.slice(0, 4) + '年（1/1〜' + md(e) + '）'; }
+  else if (u === 'month') {
+    const d = dof(t); d.setDate(1); d.setMonth(d.getMonth() + o);
+    s = dkey(d); full = addDays(s, dim(s) - 1); e = full < t ? full : t;
+    key = o === 0 ? 'month' : o === -1 ? 'prev' : null;
+    label = Number(s.slice(0, 4)) + '年' + Number(s.slice(5, 7)) + '月' + (o === 0 ? '（今月）' : o === -1 ? '（先月）' : '');
+  } else {
+    const d = dof(t); d.setDate(d.getDate() - (d.getDay() + 6) % 7 + o * 7);
+    s = dkey(d); full = addDays(s, 6); e = full < t ? full : t;
+    key = o === 0 ? 'week' : null;
+    label = md(s) + '〜' + md(full) + (o === 0 ? '（今週）' : o === -1 ? '（先週）' : '');
+  }
+  // 目標：月はそのまま、週は「月の目標 ÷ その月の日数」を7日分足す。今日・年間は目標なし
+  let scale = null;
+  if (u === 'month') scale = 1;
+  if (u === 'week') { scale = 0; for (let i = 0; i < 7; i++) scale += 1 / dim(addDays(s, i)); }
+  const P = { u, s, e, full: full || e, label, scale };
+  // 日ごとの推移は stats に今月・先月の分がある
+  const inS = key && (u !== 'week' || s >= S.periods.prev.s);
+  if (inS) P.src = { get: n => (S.data[n] && S.data[n][key]) || zero(), names: Object.keys(S.data), daily: S.daily, active: S.active, goals: S.goals, products: S.products };
+  else {
+    const c = RC[s + e];
+    if (c && Date.now() - c.at < (e < t ? 300000 : 60000)) P.src = { get: n => c.r.data[n] ? c.r.data[n].r : zero(), names: Object.keys(c.r.data), daily: c.r.daily, active: c.r.active, goals: c.r.goals, products: c.r.products };
+    else if (!(c && c.loading)) {
+      RC[s + e] = Object.assign(c || {}, { loading: true });
+      api('statsRange', s, e).then(r => { RC[s + e] = { at: Date.now(), r }; if (view === 'kpi') drawKpi(); },
+        err => { delete RC[s + e]; toast(err.message); });
+      if (c && c.r) P.src = { get: n => c.r.data[n] ? c.r.data[n].r : zero(), names: Object.keys(c.r.data), daily: c.r.daily, active: c.r.active, goals: c.r.goals, products: c.r.products };
+    }
+  }
+  return P;
+}
+const gScale = (g, P) => g == null || P.scale == null ? null : g * P.scale;
+const gFmt = g => g == null ? '-' : Number.isInteger(g) ? String(g) : g.toFixed(1);
+
+// 期間の選び方：今日／週／月／年間（一人ずつは週／月）と、‹ › で前後の週・月へ
+function periodBar(P) {
+  const units = kpiMode === 'all' ? [['day', '今日'], ['week', '週'], ['month', '月'], ['year', '年間']] : [['week', '週'], ['month', '月']];
+  const nav = P.u === 'week' || P.u === 'month' ? '<div class="pnav"><button data-off="-1" aria-label="前へ">‹</button><b>' + esc(P.label) + '</b><button data-off="1" aria-label="次へ"' + (kpiOff >= 0 ? ' disabled' : '') + '>›</button>' +
+    (kpiOff ? '<button class="now" data-off="0">' + (P.u === 'week' ? '今週' : '今月') + 'へ</button>' : '') + '</div>' : '<div class="pnav"><b>' + esc(P.label) + '</b></div>';
+  return '<div class="periods">' + segBtns(units, P.u, 'data-ku') + nav + '</div>';
+}
+function bindPeriod() {
+  $('kpiBody').querySelectorAll('[data-ku]').forEach(b => b.onclick = () => { kpiUnit = b.dataset.ku; kpiOff = 0; drawKpi(); });
+  $('kpiBody').querySelectorAll('[data-off]').forEach(b => b.onclick = () => { const d = Number(b.dataset.off); kpiOff = d ? kpiOff + d : 0; if (kpiOff > 0) kpiOff = 0; drawKpi(); });
+}
+
+function drawKpiAll(P) {
+  const src = P.src, act = src.active, rg = src.goals.rate, withGoal = P.scale != null;
+  const sum = names => { const t = zero(); names.forEach(n => { const x = src.get(n); x.c.forEach((v, i) => t.c[i] += v); t.o += x.o; t.ng += x.ng; }); return t; };
+  const team = kpi(sum(act)), mg = src.goals.member;
+  const teamGoal = { visit: gScale(act.reduce((s, n) => s + (mg[n] && mg[n].visit || 0), 0) || null, P), won: gScale(src.goals.team.won, P), opened: gScale(src.goals.team.opened, P) };
+  const gOf = n => { const g = mg[n] || {}; return { visit: gScale(g.visit, P), won: gScale(g.won, P), opened: gScale(g.opened, P) }; };
+  const rows = act.map(n => ({ n, k: kpi(src.get(n)), g: gOf(n) }));
   // 率の色：緑＝目標達成・赤＝チーム平均より下
   const cls = (v, goal, avg) => v == null ? '' : goal != null && v >= goal ? 'good' : avg != null && v < avg ? 'bad' : '';
   const rc = (k, isTeam) => [['rFace', rg.face], ['rTalk', rg.talk], ['rClose', rg.close], ['rWon', null]].map(([f, goal]) => ({ v: k[f], c: isTeam ? '' : cls(k[f], goal, team[f]) }));
-  const ach = (v, g) => '<td class="ach">' + v + ' <span>/ ' + (g || '-') + (g ? '（' + pct(v, g, 0) + '）' : '') + '</span>' + bar(v, g) + '</td>';
+  const ach = (v, g) => '<td class="ach">' + v + ' <span>/ ' + gFmt(g) + (g ? '（' + pct(v, g, 0) + '）' : '') + '</span>' + bar(v, g) + '</td>';
   const tr = (name, k, g, isTeam) => '<tr' + (isTeam ? ' class="team"' : ' data-who="' + esc(name) + '"') + '><td>' + esc(name) + '</td>' +
-    (monthly ? ach(k.visit, g.visit) : '<td>' + k.visit + '</td>') + '<td>' + k.face + '</td><td>' + k.talk + '</td>' +
-    (monthly ? ach(k.won, g.won) : '<td>' + k.won + '</td>') + '<td>' + k.ng + '</td>' + (monthly ? ach(k.opened, g.opened) : '<td>' + k.opened + '</td>') +
+    (withGoal ? ach(k.visit, g.visit) : '<td>' + k.visit + '</td>') + '<td>' + k.face + '</td><td>' + k.talk + '</td>' +
+    (withGoal ? ach(k.won, g.won) : '<td>' + k.won + '</td>') + '<td>' + k.ng + '</td>' + (withGoal ? ach(k.opened, g.opened) : '<td>' + k.opened + '</td>') +
     rc(k, isTeam).map(x => '<td class="' + x.c + '">' + rate(x.v) + '</td>').join('') + '</tr>';
   const gl = v => v == null ? '' : '<br><span style="font-weight:400">目標' + Math.round(v * 100) + '%</span>';
-  const table = '<div class="ktable wideonly"><table><thead><tr><th>名前</th><th>訪問' + (monthly ? '（目標）' : '') + '</th><th>対面</th><th>提案</th><th>獲得' + (monthly ? '（目標）' : '') + '</th><th>前確NG</th><th>開通' + (monthly ? '（目標）' : '') + '</th>' +
+  const gh = withGoal ? '（目標）' : '';
+  const table = '<div class="ktable wideonly"><table><thead><tr><th>名前</th><th>訪問' + gh + '</th><th>対面</th><th>提案</th><th>獲得' + gh + '</th><th>前確NG</th><th>開通' + gh + '</th>' +
     '<th>対面率' + gl(rg.face) + '</th><th>提案率' + gl(rg.talk) + '</th><th>成約率' + gl(rg.close) + '</th><th>獲得率</th></tr></thead><tbody>' +
     tr('チーム合計', team, teamGoal, true) + rows.map(r => tr(r.n, r.k, r.g)).join('') + '</tbody></table></div>';
   const card = (name, k, g, isTeam) => '<div class="kc' + (isTeam ? ' team' : '') + '"' + (isTeam ? '' : ' data-who="' + esc(name) + '"') + '><div class="t"><b>' + esc(name) + '</b><span class="sub">獲得率 ' + rate(k.rWon) + '</span></div>' +
     '<div class="nums">' + [['訪問', k.visit], ['対面', k.face], ['提案', k.talk], ['獲得', k.won], ['前確NG', k.ng], ['開通', k.opened]].map(([l, v]) => '<div>' + l + '<b>' + v + '</b></div>').join('') + '</div>' +
     '<div class="rates">' + rc(k, isTeam).slice(0, 3).map((x, i) => '<div class="' + x.c + '">' + ['対面率', '提案率', '成約率'][i] + '<b>' + rate(x.v) + '</b></div>').join('') + '<div>獲得率<b>' + rate(k.rWon) + '</b></div></div>' +
-    (monthly ? '<div class="achs">' + [['訪問', k.visit, g.visit], ['獲得', k.won, g.won], ['開通', k.opened, g.opened]].map(([l, v, gg]) => '<div>' + l + ' ' + v + '/' + (gg || '-') + bar(v, gg) + '</div>').join('') + '</div>' : '') + '</div>';
+    (withGoal ? '<div class="achs">' + [['訪問', k.visit, g.visit], ['獲得', k.won, g.won], ['開通', k.opened, g.opened]].map(([l, v, gg]) => '<div>' + l + ' ' + v + '/' + gFmt(gg) + bar(v, gg) + '</div>').join('') + '</div>' : '') + '</div>';
   const cards = '<div class="kcards">' + card('チーム合計', team, teamGoal, true) + rows.map(r => card(r.n, r.k, r.g)).join('') + '</div>';
-  $('kpiBody').innerHTML = '<div class="periods">' + segBtns(Object.entries(PLABEL), p, 'data-kp') + ' <span class="sub">' + range(p) + '　緑＝目標達成・赤＝チーム平均より下。名前を押すと一人ずつ</span></div>' + table + cards;
-  $('kpiBody').querySelectorAll('[data-kp]').forEach(b => b.onclick = () => { kpiP = b.dataset.kp; drawKpiAll(); });
+  const note = '<p class="sub knote">' + md(P.s) + '〜' + md(P.e) + '　緑＝目標達成・赤＝チーム平均より下。' + (P.u === 'week' ? '週の目標＝月の目標÷その月の日数×7日。' : '') + '名前を押すと一人ずつ</p>';
+  $('kpiBody').innerHTML = periodBar(P) + note + table + cards;
+  bindPeriod();
   $('kpiBody').querySelectorAll('[data-who]').forEach(el => el.onclick = () => { kpiWho = el.dataset.who; $('kpiMode').querySelector('[data-m=one]').click(); });
 }
 
-function drawKpiOne() {
-  const names = S.active.slice();
+function drawKpiOne(P) {
+  const src = P.src, names = src.active.slice();
   if (!kpiWho) kpiWho = names.includes(me) ? me : names[0] || '';
   if (kpiWho && !names.includes(kpiWho)) names.push(kpiWho);
-  const p = kpiMonth, n = kpiWho, x = get(n, p), k = kpi(x), g = S.goals.member[n] || {}, rg = S.goals.rate;
-  const avg = kpi(sumOf(Object.keys(S.data), p)); // チーム平均＝全員の合計で計算（シートと同じ）
-  const head = '<div class="oneHead"><select id="who">' + names.map(m => '<option' + (m === n ? ' selected' : '') + '>' + esc(m) + '</option>').join('') + '</select>' +
-    segBtns([['month', '今月'], ['prev', '先月']], p, 'data-km') + '<span class="sub">' + range(p) + '</span></div>';
-  const big = '<div class="card span2"><h2>目標と達成</h2><div class="big">' + [['訪問', k.visit, g.visit], ['獲得', k.won, g.won], ['開通', k.opened, g.opened]].map(([l, v, gg]) =>
-    '<div><small>' + l + '</small><b>' + v + '</b><span class="g">目標 ' + (gg || '-') + (gg ? '（' + pct(v, gg, 0) + '）' : '') + '</span>' + bar(v, gg) + '</div>').join('') + '</div></div>';
+  const n = kpiWho, x = src.get(n), k = kpi(x), g0 = src.goals.member[n] || {}, rg = src.goals.rate;
+  const g = { visit: gScale(g0.visit, P), won: gScale(g0.won, P), opened: gScale(g0.opened, P) };
+  const all = zero(); src.names.forEach(m => { const y = src.get(m); y.c.forEach((v, i) => all.c[i] += v); all.o += y.o; all.ng += y.ng; });
+  const avg = kpi(all); // チーム平均＝全員の合計で計算（シートと同じ）
+  const head = '<div class="oneHead"><select id="who">' + names.map(m => '<option' + (m === n ? ' selected' : '') + '>' + esc(m) + '</option>').join('') + '</select></div>';
+  const big = '<div class="card span2"><h2>目標と達成' + (P.u === 'week' ? ' <span class="sub">週の目標＝月の目標÷その月の日数×7日</span>' : '') + '</h2><div class="big">' + [['訪問', k.visit, g.visit], ['獲得', k.won, g.won], ['開通', k.opened, g.opened]].map(([l, v, gg]) =>
+    '<div><small>' + l + '</small><b>' + v + '</b><span class="g">目標 ' + gFmt(gg) + (gg ? '（' + pct(v, gg, 0) + '）' : '') + '</span>' + bar(v, gg) + '</div>').join('') + '</div></div>';
   const judge = (v, a, goal) => v == null ? '' : goal != null && v >= goal ? '<span class="badge green">◎ 目標達成</span>' : a != null && v >= a ? '<span class="badge blue">○ 平均以上</span>' : '<span class="badge red">△ 平均より下</span>';
   const rates = '<div class="card span2"><h2>率 <span class="sub">本人・チーム平均・目標</span></h2><table class="mini"><tr><th></th><th>本人</th><th>平均</th><th>目標</th><th>判定</th></tr>' +
     [['対面率', 'rFace', rg.face], ['提案率', 'rTalk', rg.talk], ['成約率', 'rClose', rg.close], ['獲得率', 'rWon', null]].map(([l, f, goal]) =>
@@ -435,19 +504,19 @@ function drawKpiOne() {
   const breakdown = '<div class="card"><h2>結果の内訳 <span class="sub">訪問 ' + k.visit + '件</span></h2>' + S.results.map((r, i) =>
     '<div class="hbar"><span>' + esc(r) + '</span><div class="bar"><i style="width:' + x.c[i] / mx * 100 + '%;background:' + (COLORS[r] || '#333') + '"></i></div><span>' + x.c[i] + '（' + pct(x.c[i], k.visit, 0) + '）</span></div>').join('') + '</div>';
   const prods = '<div class="card"><h2>商材別</h2><table class="mini"><tr><th>商材</th><th>獲得</th><th>開通</th></tr>' +
-    S.products.map(q => '<tr><td>' + esc(q) + '</td><td>' + (x.wp[q] || 0) + '</td><td>' + (x.op[q] || 0) + '</td></tr>').join('') +
+    src.products.map(q => '<tr><td>' + esc(q) + '</td><td>' + (x.wp[q] || 0) + '</td><td>' + (x.op[q] || 0) + '</td></tr>').join('') +
     '<tr><td><b>合計</b></td><td><b>' + k.won + '</b></td><td><b>' + k.opened + '</b></td></tr></table><p class="sub" style="margin:10px 0 0">前確NG ' + k.ng + '件</p></div>';
-  const chart = '<div class="card span2 chart"><h2>日ごとの推移 <span class="sub">棒＝訪問、線＝獲得</span></h2>' + drawChart(n, p) +
+  const chart = '<div class="card span2 chart"><h2>日ごとの推移 <span class="sub">棒＝訪問、線＝獲得</span></h2>' + drawChart(src.daily[n] || {}, P.s, P.full) +
     '<div class="legend"><span><i style="background:#9fb4dd"></i>訪問</span><span><i style="background:#d9534f"></i>獲得</span></div></div>';
-  $('kpiBody').innerHTML = head + (n ? '<div class="cards c4">' + big + rates + breakdown + prods + chart + '</div>' : '<div class="empty">在籍のメンバーがいません</div>');
-  if ($('who')) $('who').onchange = e => { kpiWho = e.target.value; drawKpiOne(); };
-  $('kpiBody').querySelectorAll('[data-km]').forEach(b => b.onclick = () => { kpiMonth = b.dataset.km; drawKpiOne(); });
+  $('kpiBody').innerHTML = periodBar(P) + head + (n ? '<div class="cards c4">' + big + rates + breakdown + prods + chart + '</div>' : '<div class="empty">在籍のメンバーがいません</div>');
+  bindPeriod();
+  if ($('who')) $('who').onchange = e => { kpiWho = e.target.value; drawKpi(); };
 }
 
-// 日ごとの推移（棒＝訪問・左の目盛り、線＝獲得・右の目盛り）
-function drawChart(name, p) {
-  const s = S.periods[p].s, y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7)), days = new Date(y, m, 0).getDate();
-  const dd = (S.daily[name] || {}), keys = [...Array(days)].map((_, i) => s.slice(0, 8) + String(i + 1).padStart(2, '0'));
+// 日ごとの推移（棒＝訪問・左の目盛り、線＝獲得・右の目盛り）。s〜e の日ごと（週は7日、月はその月の日数）
+function drawChart(dd, s, e) {
+  const keys = []; for (let k = s; k <= e; k = addDays(k, 1)) keys.push(k);
+  const days = keys.length, week = days <= 7;
   const v = keys.map(k => (dd[k] || [0, 0])[0]), w = keys.map(k => (dd[k] || [0, 0])[1]);
   const W = innerWidth < 600 ? 400 : 720, H = innerWidth < 600 ? 230 : 240, L = 34, R = 30, T = 12, B = 26, cw = (W - L - R) / days;
   const top = n => [4, 8, 12, 20, 40, 60, 80, 100, 200, 400, 800].find(x => x >= n) || Math.ceil(n / 400) * 400;
@@ -457,12 +526,13 @@ function drawChart(name, p) {
     g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" stroke="#e3e8f0"/>' +
       '<text x="' + (L - 6) + '" y="' + (yy + 4) + '" text-anchor="end" font-size="11" fill="#4b5567">' + Math.round(vm * (4 - i) / 4) + '</text>' +
       '<text x="' + (W - R + 6) + '" y="' + (yy + 4) + '" font-size="11" fill="#d9534f">' + +(wm * (4 - i) / 4).toFixed(1) + '</text>'; }
-  v.forEach((n, i) => { if (n) g += '<rect x="' + (L + i * cw + cw * .15) + '" y="' + yv(n) + '" width="' + cw * .7 + '" height="' + (H - B - yv(n)) + '" rx="2" fill="#9fb4dd"><title>' + md(keys[i]) + ' 訪問' + n + '</title></rect>'; });
+  v.forEach((n, i) => { if (n) g += '<rect x="' + (L + i * cw + cw * (week ? .25 : .15)) + '" y="' + yv(n) + '" width="' + cw * (week ? .5 : .7) + '" height="' + (H - B - yv(n)) + '" rx="2" fill="#9fb4dd"><title>' + md(keys[i]) + ' 訪問' + n + '</title></rect>'; });
   const last = keys[keys.length - 1] > S.today ? keys.indexOf(S.today) : days - 1;
   const pts = w.slice(0, last + 1).map((n, i) => (L + i * cw + cw / 2).toFixed(1) + ',' + yw(n).toFixed(1));
   if (pts.length) g += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#d9534f" stroke-width="2"/>' +
     w.slice(0, last + 1).map((n, i) => '<circle cx="' + (L + i * cw + cw / 2) + '" cy="' + yw(n) + '" r="' + (n ? 3.5 : 2) + '" fill="#d9534f"><title>' + md(keys[i]) + ' 獲得' + n + '</title></circle>').join('');
-  keys.forEach((k, i) => { if (i === 0 || (i + 1) % (W < 600 ? 7 : 5) === 0) g += '<text x="' + (L + i * cw + cw / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="#4b5567">' + md(k) + '</text>'; });
+  const WD = '日月火水木金土';
+  keys.forEach((k, i) => { if (week || i === 0 || (i + 1) % (W < 600 ? 7 : 5) === 0) g += '<text x="' + (L + i * cw + cw / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="#4b5567">' + md(k) + (week ? '(' + WD[dof(k).getDay()] + ')' : '') + '</text>'; });
   return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="日ごとの推移">' + g + '</svg>';
 }
 

@@ -228,3 +228,13 @@ body.busy #overlay { display: flex; }
 #toast { position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 45; background: var(--ink); color: #fff;
          padding: 10px 16px; border-radius: 10px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; }
 #toast.show { opacity: 1; }
+
+/* 期間の選び方（KPI） */
+.periods { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.periods .seg { margin: 0; }
+.pnav { display: flex; align-items: center; gap: 6px; }
+.pnav b { min-width: 9em; text-align: center; font-size: 15px; }
+.pnav button { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: #fff; font-size: 20px; color: var(--blue); line-height: 1; }
+.pnav button:disabled { color: #c5ccd8; }
+.pnav button.now { width: auto; padding: 0 10px; font-size: 13px; }
+.knote { margin: 0 0 10px; }

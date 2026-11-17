@@ -1,7 +1,7 @@
 // アプリの画面をスマホに保存して、電波が弱くても開けるようにする（住宅設備アプリと同じ作り）。
 // 画面はネットを優先（更新がすぐ反映される）、つながらないときだけ保存した画面を使う。データ（Apps Script）は保存しない
-const CACHE = 'tsushin-v1';
-const FILES = ['./', 'index.html', 'app.js', 'app.css', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'tsushin-v2';
+const FILES = ['./', 'index.html', 'app.js', 'app.css', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'logo-mark.png', 'logo-text.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

@@ -1,35 +1,39 @@
-/* 通信インフラアプリ。色は Lien Fort（lienfort.co.jp）に合わせる（住宅設備アプリと同じ） */
-:root { --ink: #18202e; --blue: #2a56a8; --sub: #4b5567; --line: #e3e8f0; --bg: #f6f8fb; --pale: #eef2f9;
+/* 通信インフラアプリ。色とロゴは株式会社Connect（connect828.co.jp）に合わせる：紺（ロゴの地）＋金色 */
+:root { --ink: #0b1e30; --blue: #9a7019; --gold: #c9a23c; --sub: #5c6672; --line: #e4e2dc; --bg: #f7f5f0; --pale: #f1ece1;
         --green: #1e9e5a; --red: #d9534f; --orange: #f39c12;
         --en: Oswald, "Arial Narrow", sans-serif; --side: 232px; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); }
-body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif; font-size: 15px; -webkit-text-size-adjust: 100%; }
+body { font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif; font-size: 15px; -webkit-text-size-adjust: 100%; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 select, input, textarea { border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 10px 12px; width: 100%; }
-select:focus, input:focus, textarea:focus { outline: 2px solid rgba(42,86,168,.3); border-color: var(--blue); }
-.mk { width: 26px; height: 26px; flex: none; }
+select:focus, input:focus, textarea:focus { outline: 2px solid rgba(201,162,60,.35); border-color: var(--blue); }
+.mk { width: 30px; height: 30px; flex: none; }
+/* ロゴ画像は紺の地つきなので、暗い所は下の紺になじませる（明るい所だけ見える） */
+.mk, .hero-mark, .hero-text, .word { mix-blend-mode: lighten; }
 
 /* ===== 最初の画面 ===== */
 #login { position: fixed; inset: 0; z-index: 50; background: var(--ink); display: flex; align-items: center; justify-content: center; padding: 24px;
-         background-image: linear-gradient(135deg, rgba(42,86,168,.25), transparent 60%); }
+         background-image: radial-gradient(circle at 50% 28%, rgba(201,162,60,.12), transparent 55%); overflow: auto; }
 #login .box { width: 100%; max-width: 360px; color: #fff; text-align: center; }
-#login .mk { display: block; width: 60px; height: 60px; margin: 0 auto 16px; }
-#login small { display: block; font-family: var(--en); letter-spacing: .35em; font-size: 12px; color: #9fb4dd; }
-#login b { display: block; margin: 6px 0 24px; font-family: "Shippori Mincho B1", serif; font-size: 30px; letter-spacing: .12em; }
-#login p { margin: 0 0 12px; font-size: 14px; color: #c9d4ea; }
+#login .hero-mark { display: block; width: 150px; height: 150px; margin: 0 auto 4px; }
+#login .hero-text { display: block; width: 210px; margin: 0 auto; }
+#login b { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 8px 0 26px; font-size: 18px; font-weight: 500; letter-spacing: .3em; color: var(--gold); }
+#login b::before, #login b::after { content: ""; width: 28px; height: 1px; background: rgba(201,162,60,.6); }
+#login p { margin: 0 0 12px; font-size: 14px; color: #cfd2d8; }
 #login input { padding: 14px; font-size: 18px; border: 0; text-align: center; color: var(--ink); }
-#login #passOk { width: 100%; margin-top: 12px; padding: 14px; font-size: 17px; font-weight: 600; border: 0; border-radius: 10px; background: var(--blue); color: #fff; }
+#login #passOk { width: 100%; margin-top: 12px; padding: 14px; font-size: 17px; font-weight: 700; border: 0; border-radius: 10px; background: var(--gold); color: var(--ink); letter-spacing: .1em; }
 #nameList { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 60vh; overflow: auto; }
 #nameList button { padding: 14px 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.06); color: #fff; font-size: 16px; }
-#nameList button:active { background: var(--blue); }
+#nameList button:active { background: var(--gold); color: var(--ink); }
 
 /* ===== 枠（スマホ：上のバー＋下のタブ） ===== */
 #top { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 10px;
        padding: calc(10px + env(safe-area-inset-top)) 14px 10px; background: var(--ink); color: #fff; }
 #top b { flex: 1; font-size: 17px; letter-spacing: .05em; }
+#top { box-shadow: inset 0 -1px 0 rgba(201,162,60,.35); }
 .chip { border: 1px solid rgba(255,255,255,.3); background: none; color: #fff; border-radius: 999px; padding: 5px 12px; font-size: 13px; }
 main { padding: 14px 14px calc(84px + env(safe-area-inset-bottom)); }
 #tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: grid; grid-template-columns: repeat(4, 1fr);
@@ -51,17 +55,18 @@ h1 + .sub { margin-right: auto; }
 @media (min-width: 900px) {
   #top, #tabs { display: none; }
   #side { display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; width: var(--side); background: var(--ink); color: #fff; padding: 22px 14px; }
-  .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 26px; }
-  .brand small { display: block; font-family: var(--en); font-size: 10px; letter-spacing: .3em; color: #9fb4dd; }
-  .brand b { font-family: "Shippori Mincho B1", serif; font-size: 19px; letter-spacing: .08em; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 4px 26px; }
+  .brand .mk { width: 52px; height: 52px; }
+  .brand .word { display: block; width: 120px; margin: -4px 0 0 -6px; }
+  .brand b { display: block; font-size: 12px; font-weight: 500; letter-spacing: .25em; color: var(--gold); }
   #sideNav button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px; margin-bottom: 4px; border: 0; border-radius: 10px;
-                    background: none; color: #c9d4ea; font-size: 15px; text-align: left; }
+                    background: none; color: #cfd2d8; font-size: 15px; text-align: left; }
   #sideNav button svg { width: 20px; height: 20px; }
   #sideNav button:hover { background: rgba(255,255,255,.06); }
-  #sideNav button.on { background: var(--blue); color: #fff; font-weight: 600; }
+  #sideNav button.on { background: rgba(201,162,60,.16); color: #e6c983; font-weight: 600; box-shadow: inset 3px 0 0 var(--gold); }
   .me { margin-top: auto; padding: 14px 8px 0; border-top: 1px solid rgba(255,255,255,.12); font-size: 14px; }
   .me span { display: block; margin-bottom: 6px; }
-  .link { border: 0; background: none; padding: 0; color: #9fb4dd; font-size: 12px; text-decoration: underline; }
+  .link { border: 0; background: none; padding: 0; color: #d9bd74; font-size: 12px; text-decoration: underline; }
   main { margin-left: var(--side); padding: 28px 32px 48px; max-width: calc(var(--side) + 1400px); }
   .head h1 { font-size: 24px; }
 }
@@ -92,14 +97,14 @@ button.r span { position: absolute; top: 6px; right: 10px; font-size: 14px; opac
 @media (min-width: 900px) and (max-width: 1299px) { .cards.c4 { grid-template-columns: repeat(2, 1fr); } }
 .seg { display: inline-flex; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin-bottom: 12px; gap: 2px; }
 .seg button { border: 0; background: none; padding: 7px 14px; border-radius: 8px; color: var(--sub); font-size: 14px; }
-.seg button.on { background: var(--ink); color: #fff; font-weight: 600; }
+.seg button.on { background: var(--ink); color: #fff; font-weight: 600; box-shadow: inset 0 -2px 0 var(--gold); }
 .bar { height: 10px; background: var(--pale); border-radius: 999px; overflow: hidden; }
 .bar i { display: block; height: 100%; background: var(--blue); border-radius: 999px; }
 .bar i.done { background: var(--green); }
-.bar i.warn { background: var(--orange); }
+.bar i.warn { background: var(--gold); }
 .num { font-family: var(--en); font-weight: 500; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--pale); color: var(--sub); white-space: nowrap; }
-.badge.blue { background: #e3ebf9; color: var(--blue); }
+.badge.blue { background: #e6ebf2; color: #2c4a6b; }
 .badge.green { background: #dcf3e6; color: #157244; }
 .badge.red { background: #fbe1e0; color: #b23a36; }
 .badge.yellow { background: #fff3cd; color: #7a5b00; }
@@ -148,7 +153,7 @@ button.r span { position: absolute; top: 6px; right: 10px; font-size: 14px; opac
 .rk .ct small { font-size: 12px; color: var(--sub); font-family: inherit; margin-left: 2px; }
 .rk .dt { grid-column: 2 / 4; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--sub); }
 .rk .dt .bar { flex: 0 0 38%; height: 7px; }
-.rk .dt .bar i { background: var(--orange); }
+.rk .dt .bar i { background: var(--gold); }
 .rk.m1 { background: #fff4c2; } .rk.m2 { background: #eceff3; } .rk.m3 { background: #f8e3d0; }
 
 /* ===== KPI ===== */

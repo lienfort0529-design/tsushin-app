@@ -7,23 +7,22 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="通信インフラ">
-<meta name="theme-color" content="#18202e">
+<meta name="theme-color" content="#0b1e30">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 <title>通信インフラ</title>
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500&family=Shippori+Mincho+B1:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Oswald:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<!-- ロゴ（lienfort.co.jp の白い版）。use で使い回す -->
-<svg width="0" height="0" style="position:absolute"><symbol id="mk" viewBox="345 157 536 536"><path fill="#fff" d="M355 425 613 167 846 399H742L716 374 613 477H510L665 322 613 271 458 425Z"/><path fill="#fff" opacity=".55" d="M407 425H458L484 451H381ZM742 399H846L820 425H767Z"/><path fill="#fff" opacity=".8" d="M381 451H484L613 579 767 425H871L613 683Z"/></symbol></svg>
 
 <!-- 最初の画面：合言葉 → 名前 -->
 <div id="login" hidden>
   <div class="box">
-    <svg class="mk"><use href="#mk"/></svg>
-    <small>LIEN FORT</small>
+    <!-- ロゴは株式会社Connect（connect828.co.jp）のもの。地の紺 #0b1e30 に合わせて置く -->
+    <img class="hero-mark" src="logo-mark.png" alt="">
+    <img class="hero-text" src="logo-text.png" alt="Connect">
     <b>通信インフラ</b>
     <div id="passStep">
       <p id="passMsg">チームの合言葉を入れてください</p>
@@ -39,13 +38,13 @@
 
 <div id="shell" hidden>
   <aside id="side">
-    <div class="brand"><svg class="mk"><use href="#mk"/></svg><div><small>LIEN FORT</small><b>通信インフラ</b></div></div>
+    <div class="brand"><img class="mk" src="logo-mark.png" alt=""><div><img class="word" src="logo-text.png" alt="Connect"><b>通信インフラ</b></div></div>
     <nav id="sideNav"></nav>
     <div class="me"><span id="meSide"></span><button class="link" data-act="rename">名前を変える</button></div>
   </aside>
 
   <header id="top">
-    <svg class="mk"><use href="#mk"/></svg>
+    <img class="mk" src="logo-mark.png" alt="">
     <b id="topTitle">カウンター</b>
     <button class="chip" data-act="rename" id="meTop"></button>
   </header>

@@ -507,7 +507,7 @@ function drawKpiOne(P) {
     src.products.map(q => '<tr><td>' + esc(q) + '</td><td>' + (x.wp[q] || 0) + '</td><td>' + (x.op[q] || 0) + '</td></tr>').join('') +
     '<tr><td><b>合計</b></td><td><b>' + k.won + '</b></td><td><b>' + k.opened + '</b></td></tr></table><p class="sub" style="margin:10px 0 0">前確NG ' + k.ng + '件</p></div>';
   const chart = '<div class="card span2 chart"><h2>日ごとの推移 <span class="sub">棒＝訪問、線＝獲得</span></h2>' + drawChart(src.daily[n] || {}, P.s, P.full) +
-    '<div class="legend"><span><i style="background:#9fb4dd"></i>訪問</span><span><i style="background:#d9534f"></i>獲得</span></div></div>';
+    '<div class="legend"><span><i style="background:#9aa8ba"></i>訪問</span><span><i style="background:#d9534f"></i>獲得</span></div></div>';
   $('kpiBody').innerHTML = periodBar(P) + head + (n ? '<div class="cards c4">' + big + rates + breakdown + prods + chart + '</div>' : '<div class="empty">在籍のメンバーがいません</div>');
   bindPeriod();
   if ($('who')) $('who').onchange = e => { kpiWho = e.target.value; drawKpi(); };
@@ -526,7 +526,7 @@ function drawChart(dd, s, e) {
     g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" stroke="#e3e8f0"/>' +
       '<text x="' + (L - 6) + '" y="' + (yy + 4) + '" text-anchor="end" font-size="11" fill="#4b5567">' + Math.round(vm * (4 - i) / 4) + '</text>' +
       '<text x="' + (W - R + 6) + '" y="' + (yy + 4) + '" font-size="11" fill="#d9534f">' + +(wm * (4 - i) / 4).toFixed(1) + '</text>'; }
-  v.forEach((n, i) => { if (n) g += '<rect x="' + (L + i * cw + cw * (week ? .25 : .15)) + '" y="' + yv(n) + '" width="' + cw * (week ? .5 : .7) + '" height="' + (H - B - yv(n)) + '" rx="2" fill="#9fb4dd"><title>' + md(keys[i]) + ' 訪問' + n + '</title></rect>'; });
+  v.forEach((n, i) => { if (n) g += '<rect x="' + (L + i * cw + cw * (week ? .25 : .15)) + '" y="' + yv(n) + '" width="' + cw * (week ? .5 : .7) + '" height="' + (H - B - yv(n)) + '" rx="2" fill="#9aa8ba"><title>' + md(keys[i]) + ' 訪問' + n + '</title></rect>'; });
   const last = keys[keys.length - 1] > S.today ? keys.indexOf(S.today) : days - 1;
   const pts = w.slice(0, last + 1).map((n, i) => (L + i * cw + cw / 2).toFixed(1) + ',' + yw(n).toFixed(1));
   if (pts.length) g += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#d9534f" stroke-width="2"/>' +

@@ -54,6 +54,7 @@
     <section id="v-counter" class="view">
       <div class="head"><h1>カウンター</h1><span class="sub" id="cDate"></span></div>
       <div class="counter">
+        <div id="goalBox" class="goalbox" hidden></div>
         <div class="summary">
           <div>訪問<b id="knock">0</b></div>
           <div>対面<b id="face">0</b></div>
@@ -110,6 +111,18 @@
   </div>
   <div class="err" id="appErr"></div>
   <div class="btns"><button id="appCancel">やめる</button><button class="ok red" id="appOk">登録</button></div>
+</div></div>
+
+<!-- 今日の目標（その日最初にカウンターを開いたとき） -->
+<div class="modal" id="goalModal"><div class="box">
+  <h3>今日の目標</h3>
+  <p class="sub" id="goalNote" style="margin:0 0 4px">今日の目標を入れてからスタートしましょう</p>
+  <div class="two">
+    <label>訪問（軒）<input type="number" id="gVisit" inputmode="numeric" min="1" placeholder="例：80"></label>
+    <label>獲得（件）<input type="number" id="gWon" inputmode="numeric" min="0" placeholder="例：2"></label>
+  </div>
+  <div class="err" id="goalErr"></div>
+  <div class="btns"><button id="goalCancel">やめる</button><button class="ok" id="goalOk">スタート</button></div>
 </div></div>
 
 <!-- 顧客進捗 1件の更新 -->

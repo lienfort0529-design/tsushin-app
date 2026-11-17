@@ -3,7 +3,7 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbzALOLUN8rAom2b6fXmlA0zV5raPXSY-KrRAtZnPNrxznetLprUi687Jy6v0dgKTxzz/exec';
 
 // スマホに覚えておくもの（住宅設備アプリと同じ場所に入るので、名前の頭に hk を付けて分ける）
-const KEY = { pass: 'hkPass', name: 'hkName', queue: 'hkQueue', cfg: 'hkCfg', view: 'hkView' };
+const KEY = { pass: 'hkPass', name: 'hkName', queue: 'hkQueue', cfg: 'hkCfg', view: 'hkView', goal: 'hkGoal' };
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
@@ -136,6 +136,7 @@ function render() {
   $('knock').textContent = face + (counts['不在'] || 0) + (counts['インターホンNG'] || 0);
   $('talk').textContent = (counts['トーク後NG'] || 0) + (counts['獲得'] || 0);
   $('apo').textContent = counts['獲得'] || 0;
+  renderGoal(Number($('knock').textContent), counts['獲得'] || 0);
   $('prodToday').textContent = cfg.products.map(p => p + ' ' + (prod[p] || 0)).join('・');
   $('pending').style.display = queue.length ? 'block' : 'none';
   $('pending').textContent = '未送信 ' + queue.length + '件（電波が戻ったら自動で送ります）';
@@ -147,6 +148,7 @@ const kana = s => s.replace(/[\s　]/g, '').replace(/[ぁ-ゖ]/g, c => String.fr
 // 「獲得」は申込日・商材・お客様名・セイメイ（カナ）を入れてから記録する（顧客進捗に1行増える）
 function openApp() {
   if (busy) return;
+  if (!myGoal()) { openGoal(true); return; }
   $('appDate').value = new Date().toLocaleDateString('sv-SE');
   ['product', 'customer', 'sei', 'mei'].forEach(id => $(id).value = ''); $('appErr').textContent = '';
   $('appBox').classList.add('open');
@@ -165,6 +167,7 @@ $('appOk').onclick = () => {
 
 function record(result, extra) {
   if (busy) return;
+  if (!myGoal()) { openGoal(true); return; }
   queue.push(Object.assign({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), name: me, result: result, ts: Date.now() }, extra));
   saveQueue();
   $('msg').textContent = '記録しました：' + result + (extra && extra.product ? '（' + extra.product + '）' : '');
@@ -210,7 +213,72 @@ function setBusy(on, text) {
 
 function loadToday() {
   render();
-  api('getToday', me).then(c => { sent = c; render(); }, () => {});
+  const who = me;
+  api('getToday', who).then(c => {
+    if (who !== me) return;
+    sent = c;
+    // 今日の目標：シートにあればそれを使う（別のスマホで入れた分も）。まだ送れていない分があれば送る
+    const g = myGoal();
+    if (c.goal && (!g || g.sent)) saveGoal(c.goal.visit, c.goal.won, true);
+    else if (g && !g.sent) sendGoal();
+    render();
+    if (!myGoal()) openGoal(true);
+  }, () => { if (!myGoal()) openGoal(true); });
+}
+
+// ===== 今日の目標とカウントダウン =====
+// その日最初にカウンターを開いたときに入れる（入れるまで結果ボタンは押せない）。スマホに覚え、「日の目標」シートにも送る
+const todayKey = () => new Date().toLocaleDateString('sv-SE');
+function myGoal() { const g = store.get(KEY.goal, null); return g && g.date === todayKey() && g.name === me ? g : null; }
+function saveGoal(visit, won, sentAlready) { store.set(KEY.goal, { date: todayKey(), name: me, visit: visit, won: won, sent: !!sentAlready }); }
+function sendGoal() {
+  const g = myGoal();
+  if (!g || g.sent) return;
+  api('setDayGoal', { name: g.name, date: g.date, visit: g.visit, won: g.won }).then(() => {
+    const h = myGoal(); if (h && h.visit === g.visit && h.won === g.won) saveGoal(g.visit, g.won, true);
+  }, () => {});
+}
+setInterval(sendGoal, 20000);
+window.addEventListener('online', sendGoal);
+
+function openGoal(required) {
+  if (view !== 'counter' || $('goalModal').classList.contains('open')) return;
+  const g = myGoal();
+  $('gVisit').value = g ? g.visit : ''; $('gWon').value = g ? g.won : '';
+  $('goalNote').textContent = required ? new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' }) + '　今日の目標を入れてからスタートしましょう' : '今日の目標を変えます';
+  $('goalCancel').hidden = required;
+  $('goalOk').textContent = required ? 'スタート' : '変える';
+  $('goalErr').textContent = '';
+  $('goalModal').classList.add('open');
+}
+$('goalCancel').onclick = () => $('goalModal').classList.remove('open');
+$('goalOk').onclick = () => {
+  const v = $('gVisit').value.trim(), w = $('gWon').value.trim(), visit = Number(v), won = Number(w);
+  const err = !v || !Number.isInteger(visit) || visit < 1 ? '訪問の目標を1以上の数で入れてください' : !w || !Number.isInteger(won) || won < 0 ? '獲得の目標を0以上の数で入れてください'
+    : visit > 9999 || won > 999 ? '数が大きすぎます' : '';
+  if (err) { $('goalErr').textContent = err; return; }
+  saveGoal(visit, won, false);
+  $('goalModal').classList.remove('open');
+  render();
+  sendGoal();
+};
+
+// 目標までのカウントダウン
+function renderGoal(visit, won) {
+  const g = myGoal(), box = $('goalBox');
+  if (!g) { box.hidden = true; return; }
+  const row = (label, unit, now, goal) => {
+    const left = goal - now, done = left <= 0;
+    return '<div class="gl' + (done ? ' done' : '') + '"><div class="gt"><span>' + label + '</span>' +
+      (done ? '<b>達成！</b>' : '<b>あと <em>' + left + '</em>' + unit + '</b>') + '<small>' + now + ' / ' + goal + unit + '</small></div>' +
+      '<div class="bar"><i class="' + (done ? 'done' : '') + '" style="width:' + (goal ? Math.min(now / goal, 1) * 100 : 100) + '%"></i></div></div>';
+  };
+  const all = visit >= g.visit && won >= g.won;
+  box.innerHTML = '<div class="gh"><b>' + (all ? '🎉 今日の目標達成！' : '今日の目標まで') + '</b><button class="link2" id="goalEdit">目標を変える</button></div>' +
+    row('訪問', '軒', visit, g.visit) + row('獲得', '件', won, g.won);
+  box.classList.toggle('all', all);
+  box.hidden = false;
+  $('goalEdit').onclick = () => openGoal(false);
 }
 
 // 0時をまたいだら今日の数字に戻す

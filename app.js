@@ -3,7 +3,7 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbzALOLUN8rAom2b6fXmlA0zV5raPXSY-KrRAtZnPNrxznetLprUi687Jy6v0dgKTxzz/exec';
 
 // スマホに覚えておくもの（住宅設備アプリと同じ場所に入るので、名前の頭に hk を付けて分ける）
-const KEY = { pass: 'hkPass', name: 'hkName', queue: 'hkQueue', cfg: 'hkCfg', view: 'hkView', goal: 'hkGoal', admin: 'hkAdmin' };
+const KEY = { pass: 'hkPass', name: 'hkName', queue: 'hkQueue', cfg: 'hkCfg', view: 'hkView', goal: 'hkGoal', admin: 'hkAdmin', area: 'hkArea' };
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
@@ -131,7 +131,19 @@ let queue = store.get(KEY.queue, []), sent = {}, busy = false, sending = false, 
 const saveQueue = () => store.set(KEY.queue, queue);
 const sameDay = t => new Date(t).toDateString() === new Date().toDateString();
 
+// エリア：カウンターの上で選んだエリアで記録する（前回選んだものを覚える）。獲得の入力ではエリアを変えられる
+let area = store.get(KEY.area, '');
+function drawCounterArea() {
+  const as = cfg.areas || [];
+  if (!as.includes(area)) area = '';
+  $('areaSel').innerHTML = as.length ? '<span>エリア</span>' + as.map(a => '<button data-ca="' + esc(a) + '"' + (a === area ? ' class="on"' : '') + '>' + esc(a) + '</button>').join('') : '';
+  $('areaSel').querySelectorAll('[data-ca]').forEach(b => b.onclick = () => { area = b.dataset.ca; store.set(KEY.area, area); drawCounterArea(); });
+  $('areaSel').classList.toggle('need', !area && as.length > 0);
+}
+const needArea = () => { if ((cfg.areas || []).length && !area) { $('msg').textContent = '先にエリア（' + cfg.areas.join('／') + '）を選んでください'; $('areaSel').classList.add('shake'); setTimeout(() => $('areaSel').classList.remove('shake'), 500); return true; } return false; };
+
 function setupCounter() {
+  drawCounterArea();
   $('cDate').textContent = new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' });
   if (built) return;
   built = true;
@@ -145,6 +157,8 @@ function setupCounter() {
   });
   $('product').length = 1;
   cfg.products.forEach(p => $('product').add(new Option(p, p)));
+  $('appArea').length = 0;
+  (cfg.areas || []).forEach(a => $('appArea').add(new Option(a, a)));
   render();
 }
 
@@ -174,6 +188,8 @@ const kana = s => s.replace(/[\s　]/g, '').replace(/[ぁ-ゖ]/g, c => String.fr
 function openApp() {
   if (busy) return;
   if (!myGoal()) { openGoal(true); return; }
+  if (needArea()) return;
+  $('appArea').value = area;
   $('appDate').value = new Date().toLocaleDateString('sv-SE');
   ['product', 'customer', 'sei', 'mei'].forEach(id => $(id).value = ''); $('appErr').textContent = '';
   $('appBox').classList.add('open');
@@ -187,15 +203,16 @@ $('appOk').onclick = () => {
     : !sei || !mei ? 'セイ・メイ（カナ）を入れてください' : !/^[ァ-ヶー]+$/.test(sei + mei) ? 'セイ・メイはカタカナで入れてください' : '';
   if (err) { $('appErr').textContent = err; return; }
   $('appBox').classList.remove('open');
-  record('獲得', { appDate: appDate, customer: customer, sei: sei, mei: mei, product: product });
+  record('獲得', { appDate: appDate, customer: customer, sei: sei, mei: mei, product: product, area: $('appArea').value || area });
 };
 
 function record(result, extra) {
   if (busy) return;
   if (!myGoal()) { openGoal(true); return; }
-  queue.push(Object.assign({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), name: me, result: result, ts: Date.now() }, extra));
+  if (needArea()) return;
+  queue.push(Object.assign({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), name: me, result: result, ts: Date.now(), area: area }, extra));
   saveQueue();
-  $('msg').textContent = '記録しました：' + result + (extra && extra.product ? '（' + extra.product + '）' : '');
+  $('msg').textContent = '記録しました：' + result + (extra && extra.product ? '（' + extra.product + '）' : '') + (area ? '・' + ((extra && extra.area) || area) : '');
   render();
   // 押し間違い防止に少しの間ほかを押せなくする
   setBusy(true, '記録中…');
@@ -336,12 +353,14 @@ let filled = false;
 function fillFilters() {
   if (filled) return;
   filled = true;
-  [['fStaff', 1], ['fEntry', 2], ['fProd', 1], ['e-entry', 1], ['e-line', 1]].forEach(([id, n]) => $(id).length = n);
+  [['fStaff', 1], ['fEntry', 2], ['fProd', 1], ['fArea', 1], ['e-entry', 1], ['e-line', 1]].forEach(([id, n]) => $(id).length = n);
   cfg.names.forEach(n => $('fStaff').add(new Option(n, n)));
   cfg.entryStatus.forEach(s => { $('fEntry').add(new Option(s, s)); $('e-entry').add(new Option(s, s)); });
   cfg.lineStatus.forEach(s => $('e-line').add(new Option(s, s)));
   cfg.products.forEach(p => $('fProd').add(new Option(p, p)));
-  ['fText', 'fStaff', 'fEntry', 'fProd', 'fOpen'].forEach(id => $(id).oninput = drawCust);
+  $('fArea').length = 1;
+  (cfg.areas || []).forEach(a => $('fArea').add(new Option(a, a)));
+  ['fText', 'fStaff', 'fEntry', 'fProd', 'fOpen', 'fArea'].forEach(id => $(id).oninput = drawCust);
 }
 
 function entryBadge(c) {
@@ -358,33 +377,34 @@ function stateBadge(c) {
 }
 
 function drawCust() {
-  const t = kana($('fText').value.trim()), raw = $('fText').value.trim(), st = $('fStaff').value, en = $('fEntry').value, pr = $('fProd').value, op = $('fOpen').value;
-  const list = cust.filter(c => (!st || c.staff === st) && (!pr || c.product === pr)
+  const t = kana($('fText').value.trim()), raw = $('fText').value.trim(), st = $('fStaff').value, en = $('fEntry').value, pr = $('fProd').value, op = $('fOpen').value, ar = $('fArea').value;
+  const list = cust.filter(c => (!st || c.staff === st) && (!pr || c.product === pr) && (!ar || c.area === ar)
       && (!en || (en === '-' ? !c.entry : c.entry === en))
       && (!op || (op === '1' ? isOpen(c) : op === '0' ? !isOpen(c) && !isCancel(c) : isCancel(c)))
       && (!raw || c.customer.includes(raw) || (c.sei + c.mei).includes(t)))
-    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.row - a.row);
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || cust.indexOf(b) - cust.indexOf(a));
   $('custCount').textContent = list.length + '件' + (list.length !== cust.length ? '（全' + cust.length + '件）' : '');
   if (!list.length) { $('custBody').innerHTML = '<div class="empty">' + (cust.length ? '条件に合うお客様がいません' : 'まだ獲得がありません') + '</div>'; return; }
   const kn = c => esc((c.sei + ' ' + c.mei).trim());
-  const cards = list.map(c => '<button class="citem" data-row="' + c.row + '"><div class="t"><b>' + esc(c.customer || '（名前なし）') + '</b><span class="k">' + kn(c) + '</span></div>' +
-    '<div class="m">' + md(c.date) + ' 申込 ・ ' + esc(c.staff) + ' ・ ' + esc(c.product) + '</div><div class="s">' + entryBadge(c) + stateBadge(c) +
+  const ab = c => c.area ? '<span class="badge area">' + esc(c.area) + '</span>' : '';
+  const cards = list.map(c => '<button class="citem" data-k="' + cust.indexOf(c) + '"><div class="t"><b>' + esc(c.customer || '（名前なし）') + '</b><span class="k">' + kn(c) + '</span></div>' +
+    '<div class="m">' + md(c.date) + ' 申込 ・ ' + esc(c.staff) + ' ・ ' + esc(c.product) + '</div><div class="s">' + ab(c) + entryBadge(c) + stateBadge(c) +
     (c.line ? '<span class="badge">回線 ' + esc(c.line) + '</span>' : '') + '</div></button>').join('');
   const d = k => k ? md(k) : '';
-  const rows = list.map(c => '<tr data-row="' + c.row + '"><td>' + d(c.date) + '</td><td>' + esc(c.staff) + '</td><td><b>' + esc(c.customer) + '</b><div class="k">' + kn(c) + '</div></td>' +
+  const rows = list.map(c => '<tr data-k="' + cust.indexOf(c) + '"><td>' + d(c.date) + '</td><td>' + ab(c) + '</td><td>' + esc(c.staff) + '</td><td><b>' + esc(c.customer) + '</b><div class="k">' + kn(c) + '</div></td>' +
     '<td>' + esc(c.product) + '</td><td>' + entryBadge(c) + '</td><td>' + d(c.entryDate) + '</td><td>' + d(c.jumper) + '</td><td>' + esc(c.line) + '</td>' +
     '<td>' + d(c.netDate) + '</td><td>' + d(c.billDate) + '</td><td>' + (c.done ? (isCancel(c) ? d(c.done) : '<span class="badge green">' + d(c.done) + '</span>') : '') + '</td>' +
     '<td class="memo">' + esc(c.memo) + '</td></tr>').join('');
-  $('custBody').innerHTML = '<div class="clist">' + cards + '</div><div class="ctable"><table><thead><tr><th>申込日</th><th>担当</th><th>お客様名</th><th>商材</th>' +
+  $('custBody').innerHTML = '<div class="clist">' + cards + '</div><div class="ctable"><table><thead><tr><th>申込日</th><th>エリア</th><th>担当</th><th>お客様名</th><th>商材</th>' +
     '<th>エントリーステータス</th><th>エントリー日</th><th>ジャンパ工事</th><th>回線契約</th><th>NET締結</th><th>課金開始</th><th>工事完了</th><th>メモ</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
-  $('custBody').querySelectorAll('[data-row]').forEach(el => el.onclick = () => openCust(cust.find(c => c.row === Number(el.dataset.row))));
+  $('custBody').querySelectorAll('[data-k]').forEach(el => el.onclick = () => openCust(cust[Number(el.dataset.k)]));
 }
 
 const EDIT = ['entry', 'entryDate', 'jumper', 'line', 'netDate', 'billDate', 'done', 'memo'];
 function openCust(c) {
   editing = c;
   $('cbName').textContent = (c.customer || '（名前なし）') + ' 様';
-  $('cbInfo').innerHTML = esc((c.sei + ' ' + c.mei).trim()) + '<br>申込日 ' + esc(c.date.replace(/-/g, '/')) + ' ・ 担当 ' + esc(c.staff) + ' ・ ' + esc(c.product);
+  $('cbInfo').innerHTML = esc((c.sei + ' ' + c.mei).trim()) + '<br>' + (c.area ? esc(c.area) + ' ・ ' : '') + '申込日 ' + esc(c.date.replace(/-/g, '/')) + ' ・ 担当 ' + esc(c.staff) + ' ・ ' + esc(c.product);
   EDIT.forEach(k => {
     const el = $('e-' + k);
     if (el.tagName === 'SELECT' && c[k] && ![...el.options].some(o => o.value === c[k])) el.add(new Option(c[k], c[k]));
@@ -399,7 +419,7 @@ function openCust(c) {
 }
 $('cbCancel').onclick = () => $('custBox').classList.remove('open');
 $('cbOk').onclick = () => {
-  const c = editing, u = { row: c.row, id: c.id, date: c.date, customer: c.customer };
+  const c = editing, u = { row: c.row, id: c.id, date: c.date, customer: c.customer, area: c.area };
   EDIT.forEach(k => u[k] = $('e-' + k).value.trim());
   if (EDIT.every(k => (u[k] || '') === (c[k] || ''))) { $('custBox').classList.remove('open'); return; }
   $('cbOk').disabled = true; $('cbErr').textContent = '保存中…';
@@ -426,7 +446,12 @@ function loadStats(force) {
 function drawStats() { if (view === 'rank') drawRank(); if (view === 'kpi') drawKpi(); }
 
 const zero = () => ({ c: S.results.map(() => 0), wp: {}, o: 0, op: {}, ng: 0 });
-const get = (name, p) => (S.data[name] && S.data[name][p]) || zero();
+// エリア（全体／大阪／名古屋）：ランキング・KPI で切り替える。stats の data・daily はエリアごと
+let statArea = '全体';
+const AD = () => S.data[statArea] || {};
+const get = (name, p) => (AD()[name] && AD()[name][p]) || zero();
+const areaSeg = () => (cfg.areas && cfg.areas.length ? segBtns(['全体'].concat(cfg.areas).map(a => [a, a]), statArea, 'data-area') : '');
+function bindArea(redraw) { document.querySelectorAll('[data-area]').forEach(b => b.onclick = () => { statArea = b.dataset.area; redraw(); }); }
 function sumOf(names, p) {
   const t = zero();
   names.forEach(n => { const x = get(n, p); x.c.forEach((v, i) => t.c[i] += v); t.o += x.o; t.ng += x.ng;
@@ -452,7 +477,7 @@ const range = p => md(S.periods[p].s) + (S.periods[p].s === S.periods[p].e ? '' 
 
 // ----- ランキング -----
 function drawRank() {
-  const act = S.active, all = Object.keys(S.data);
+  const act = S.active, all = Object.keys(AD());
   // 今日のMVP：今日の獲得がいちばん多い人（同数なら訪問が多い人）
   const mvp = act.map(n => kpi(get(n, 'day'))).map((k, i) => ({ n: act[i], w: k.won, v: k.visit }))
     .sort((a, b) => b.w - a.w || b.v - a.v)[0];
@@ -475,10 +500,11 @@ function drawRank() {
     }).join('');
     return '<div class="card"><h2>' + title + ' <span class="sub">' + note + '</span></h2>' + (body || '<div class="empty">在籍のメンバーがいません</div>') + '</div>';
   };
-  $('rankBody').innerHTML = mvpHtml + '<div style="height:12px"></div>' + goalHtml +
+  $('rankBody').innerHTML = '<div class="areabar">' + areaSeg() + '</div>' + mvpHtml + '<div style="height:12px"></div>' + goalHtml +
     '<div class="periods" style="margin-top:16px">' + segBtns([['week', '今週'], ['month', '今月'], ['year', '年間']], rankP, 'data-rp') + ' <span class="sub">' + range(rankP) + '</span></div>' +
     '<div class="cards c2">' + board('獲得ランキング', '', x => x.c[RI('獲得')], x => x.wp) + board('開通ランキング', '工事完了日・キャンセル除く', x => x.o, x => x.op) + '</div>';
   $('rankBody').querySelectorAll('[data-rp]').forEach(b => b.onclick = () => { rankP = b.dataset.rp; drawRank(); });
+  bindArea(drawRank);
 }
 
 // ----- 個人成績・KPI -----
@@ -523,15 +549,16 @@ function kpiPeriod() {
   const P = { u, s, e, full: full || e, label, scale };
   // 日ごとの推移は stats に今月・先月の分がある
   const inS = key && (u !== 'week' || s >= S.periods.prev.s);
-  if (inS) P.src = { get: n => (S.data[n] && S.data[n][key]) || zero(), names: Object.keys(S.data), daily: S.daily, active: S.active, goals: S.goals, products: S.products };
+  const A = statArea, fromR = r => ({ get: n => r.data[A] && r.data[A][n] ? r.data[A][n].r : zero(), names: Object.keys(r.data[A] || {}), daily: r.daily[A] || {}, active: r.active, goals: r.goals, products: r.products });
+  if (inS) P.src = { get: n => (AD()[n] && AD()[n][key]) || zero(), names: Object.keys(AD()), daily: S.daily[A] || {}, active: S.active, goals: S.goals, products: S.products };
   else {
     const c = RC[s + e];
-    if (c && Date.now() - c.at < (e < t ? 300000 : 60000)) P.src = { get: n => c.r.data[n] ? c.r.data[n].r : zero(), names: Object.keys(c.r.data), daily: c.r.daily, active: c.r.active, goals: c.r.goals, products: c.r.products };
+    if (c && Date.now() - c.at < (e < t ? 300000 : 60000)) P.src = fromR(c.r);
     else if (!(c && c.loading)) {
       RC[s + e] = Object.assign(c || {}, { loading: true });
       api('statsRange', s, e).then(r => { RC[s + e] = { at: Date.now(), r }; if (view === 'kpi') drawKpi(); },
         err => { delete RC[s + e]; toast(err.message); });
-      if (c && c.r) P.src = { get: n => c.r.data[n] ? c.r.data[n].r : zero(), names: Object.keys(c.r.data), daily: c.r.daily, active: c.r.active, goals: c.r.goals, products: c.r.products };
+      if (c && c.r) P.src = fromR(c.r);
     }
   }
   return P;
@@ -544,9 +571,10 @@ function periodBar(P) {
   const units = kpiMode === 'all' ? [['day', '今日'], ['week', '週'], ['month', '月'], ['year', '年間']] : [['week', '週'], ['month', '月']];
   const nav = P.u === 'week' || P.u === 'month' ? '<div class="pnav"><button data-off="-1" aria-label="前へ">‹</button><b>' + esc(P.label) + '</b><button data-off="1" aria-label="次へ"' + (kpiOff >= 0 ? ' disabled' : '') + '>›</button>' +
     (kpiOff ? '<button class="now" data-off="0">' + (P.u === 'week' ? '今週' : '今月') + 'へ</button>' : '') + '</div>' : '<div class="pnav"><b>' + esc(P.label) + '</b></div>';
-  return '<div class="periods">' + segBtns(units, P.u, 'data-ku') + nav + '</div>';
+  return '<div class="areabar">' + areaSeg() + '</div><div class="periods">' + segBtns(units, P.u, 'data-ku') + nav + '</div>';
 }
 function bindPeriod() {
+  bindArea(drawKpi);
   $('kpiBody').querySelectorAll('[data-ku]').forEach(b => b.onclick = () => { kpiUnit = b.dataset.ku; kpiOff = 0; drawKpi(); });
   $('kpiBody').querySelectorAll('[data-off]').forEach(b => b.onclick = () => { const d = Number(b.dataset.off); kpiOff = d ? kpiOff + d : 0; if (kpiOff > 0) kpiOff = 0; drawKpi(); });
 }

@@ -69,6 +69,7 @@
     <section id="v-counter" class="view">
       <div class="head"><h1>カウンター</h1><span class="sub" id="cDate"></span></div>
       <div class="counter">
+        <div id="areaSel" class="areasel"></div>
         <div id="goalBox" class="goalbox" hidden></div>
         <div class="summary">
           <div>訪問<b id="knock">0</b></div>
@@ -92,6 +93,7 @@
         <select id="fStaff"><option value="">担当：全員</option></select>
         <select id="fEntry"><option value="">エントリー：全部</option><option value="-">（未入力）</option></select>
         <select id="fProd"><option value="">商材：全部</option></select>
+        <select id="fArea"><option value="">エリア：全部</option></select>
         <select id="fOpen"><option value="">開通：全部</option><option value="1">開通済み</option><option value="0">未開通</option><option value="x">キャンセル</option></select>
       </div>
       <div id="custBody" ><div class="loading">読み込み中…</div></div>
@@ -124,6 +126,7 @@
 <div class="modal" id="appBox"><div class="box">
   <h3>獲得を登録</h3>
   <label>申込日<input type="date" id="appDate"></label>
+  <label>エリア<select id="appArea"></select></label>
   <label>商材<select id="product"><option value="">選んでください</option></select></label>
   <label>お客様名<input type="text" id="customer" placeholder="例：山田 太郎"></label>
   <div class="two">

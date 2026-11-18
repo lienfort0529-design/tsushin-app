@@ -78,11 +78,11 @@ function csvDown(name,objs){if(!objs.length)return toast("出力する行があ�
 function askName(after){$("#layer").innerHTML=`<div class="shade" id="shade"></div><div class="sheet" role="dialog" aria-label="名前の登録"><div class="in"><div class="grab"></div><b style="font-size:17px">あなたの名前</b><p class="small">記録に「誰が・いつ」を残すために使います。一度入れれば、この端末では次から聞きません。</p><input class="search" id="mename" placeholder="名前" value="${esc(ME)}" autocomplete="name"><button class="save" id="savename">この名前で記録する</button></div></div>`;window.__afterName=after;setTimeout(()=>{const i=$("#mename");i&&i.focus()},200)}
 let skipH=false;const listY={};const STK=[];
 // 戻るボタンの文字：一個前の画面の名前
-function backLabel(){const pv=STK[STK.length-1];if(!pv)return st.view==="map"?"地図へ戻る":"物件一覧へ戻る";if(pv.b)return "前の物件へ戻る";return pv.v==="news"?"お知らせへ戻る":pv.v==="admin"?"管理者画面へ戻る":st.view==="map"?"地図へ戻る":"物件一覧へ戻る"}
+function backLabel(){const pv=STK[STK.length-1];if(!pv)return st.view==="map"?"地図へ戻る":"物件一覧へ戻る";if(pv.b)return "前の物件へ戻る";return pv.v==="news"?"お知らせへ戻る":pv.v==="my"?"マイページへ戻る":pv.v==="admin"?"管理者画面へ戻る":st.view==="map"?"地図へ戻る":"物件一覧へ戻る"}
 function curH(){return st.b?"b"+st.b:(st.v==="list"?"list":st.v)}
 function pushH(){const h=curH();if(location.hash.slice(1)!==h){skipH=true;location.hash=h}}
 function applyH(){const h=location.hash.slice(1);if(st.room)closeRoom();if(!/^b\d+$/.test(h))STK.length=0;
- if(/^b\d+$/.test(h)&&BY[+h.slice(1)]){st.v="list";st.b=+h.slice(1)}else if(h==="news"||h==="admin"){st.v=h;st.b=null}else{st.v="list";st.b=null}
+ if(/^b\d+$/.test(h)&&BY[+h.slice(1)]){st.v="list";st.b=+h.slice(1)}else if(h==="news"||h==="admin"||h==="my"){st.v=h;st.b=null}else{st.v="list";st.b=null}
  render();if(st.v==="list"&&!st.b&&listY.y)setTimeout(()=>scrollTo(0,listY.y),0)}
 window.addEventListener("hashchange",()=>{if(skipH){skipH=false;return}applyH()});
 function render(){document.body.classList.toggle("wide",st.v==="admin");if((ROLE==="agency"||!VS.admin())&&st.v==="admin")st.v="list";
@@ -92,7 +92,7 @@ function render(){document.body.classList.toggle("wide",st.v==="admin");if((ROLE
  document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",t.dataset.v===st.v));
  const nn=ROLE==="agency"?0:allRecs().filter(h=>h.s==="ok"&&h.t&&Date.now()-h.t<7*864e5).length;$("#nb").textContent=nn;$("#nb").hidden=!nn;
  const app=$("#app");
- if(st.v==="news")app.innerHTML=news();else if(st.v==="admin")app.innerHTML=admin();else app.innerHTML=st.b?detail():list();
+ if(st.v==="news")app.innerHTML=news();else if(st.v==="my")app.innerHTML=my();else if(st.v==="admin")app.innerHTML=admin();else app.innerHTML=st.b?detail():list();
  window.scrollTo(0,0);if(st.v==="list"&&!st.b&&st.view==="map")drawMap();else if(MAP){MAP.remove();MAP=null}}
 function emptyMsg(){const L={f:{hot:"🔥未着手",part:"一部だけ",chk:"現場で確認",go:"訪問中"},mg:{s:"1R・1K",d1:"1DK・1LDK",f2:"2K〜2LDK",f3:"3DK以上",fam:"ファミリー"},lk:{yes:"オートロックあり",no:"オートロックなし"}};const on=["f","mg","lk"].filter(k=>st[k]).map(k=>L[k][st[k]]||st[k]);if(!on.length)return '<p class="lead">該当する物件がありません。</p>';const keep={f:st.f,mg:st.mg,lk:st.lk};st.f="";st.mg="";st.lk="";const n=filtered().length;Object.assign(st,keep);return `<div class="note"><b>該当する物件がありません</b><div class="small" style="margin:4px 0 8px">いま「${on.map(esc).join("・")}」で絞り込んでいます。${n?`この絞り込みを外すと ${n}件 あります。`:""}</div><button class="save" id="clr">絞り込みを外す</button></div>`}
 function filtered(){let a=VIS();const src=st.src||"t";if(src==="t")a=a.filter(b=>b.kind!=="d");else if(src==="d")a=a.filter(b=>b.kind==="d");
@@ -119,9 +119,7 @@ function list(){const a=filtered();const hc=st.near&&st.pos?hereCity():"";
  <div class="seg"><button data-view="list" aria-pressed="${st.view==="list"}">リスト</button><button data-view="map" aria-pressed="${st.view==="map"}">地図</button></div>
  <div id="res">${listRes(a)}</div>`}
 function listRes(a){return ` ${st.view==="map"?`<div id="map" role="region" aria-label="物件の地図"></div><div class="legend"><span><i style="background:#e8590c"></i>未着手</span><span><i style="background:#1f4e79"></i>訪問中</span><span><i style="background:#c99a00"></i>一部だけ</span><span><i style="background:#c92a2a"></i>現場で確認</span><span><i style="background:#2f9e44"></i>現在地</span></div><div class="small" style="margin-top:4px">${a.filter(b=>b.lat!=null).length.toLocaleString()}件を表示中</div>`:`<div class="small" style="margin-bottom:6px">${a.length.toLocaleString()}件（${st.near&&st.pos?"近い順":"棟数の多い順"}）</div>
- <div class="list">${a.slice(0,st.lim).map(b=>{const ks=allRooms(b),c=stats(ks);return `<button class="bcard" data-b="${b.id}">
-  <div class="top"><b>${esc(b.name)}</b>${isHot(b)?'<span class="tag hot">🔥未着手</span>':""}${KIND[b.kind]}${VTAG(b)}${MM[b.id]&&ROLE==="own"?'<span class="tag as">📝メモ</span>':""}${st.near&&st.pos?`<span class="dist">${dtxt(km(b))}</span>`:""}</div>
-  <div class="addr">${esc(b.addr)}${b.nt>1?`・${b.nt}棟`:""}</div>${roomTxt(b)&&(ROLE==="own"||isPub(b))?`<div class="nums" style="color:var(--fg)">🏠 ${esc(roomTxt(b))}</div>`:""}${ks.length?barHTML(ks)+`<div class="nums">未訪問 ${c.mi}／不在 ${c.fu}／検討 ${c.kn}／契約 ${c.ok}${c.dg?`／<span style="color:var(--r-ke-t);font-weight:700">⚠${c.dg}</span>`:""}</div>`:""}</button>`}).join("")||emptyMsg()}</div>
+ <div class="list">${a.slice(0,st.lim).map(b=>bCard(b)).join("")||emptyMsg()}</div>
  ${a.length>st.lim?`<button class="more" id="more">さらに表示（残り ${(a.length-st.lim).toLocaleString()}件）</button>`:""}`}`}
 const age=m=>{const y=m&&String(m.shunko||"").match(/(19|20)\d\d/);return y?new Date().getFullYear()-+y[0]:null};
 const lockOf=m=>{const l=m&&m.lock||"";if(/^不明/.test(l))return "est";if(!l||/不確実|棟により/.test(l))return "";if(/^なし|オートロックなし/.test(l))return "no";return "yes"};
@@ -147,7 +145,7 @@ function setupForm(b){const lab=b.tou[st.t]||"";const z=sizeOf(b);
  <div class="row"><label>階数<input id="lf" type="number" inputmode="numeric" min="1" max="60" value="${z.kai||5}"></label><label>1フロアの戸数<input id="lp" type="number" inputmode="numeric" min="1" max="40" value="${z.per||4}"></label></div>
  <button class="save" id="mk">部屋を作る</button></div>`}
 function bHist(b){const out=[];b.tou.forEach((t,ti)=>{Object.keys(H).forEach(k=>{if(!k.startsWith(b.id+"#"+ti+"-"))return;H[k].forEach(h=>out.push({...h,room:k.split("-").pop(),tou:b.tou.length>1?t:""}))})});return out.sort((x,y)=>(y.t||0)-(x.t||0))}
-function detail(){const b=BY[st.b];if(st.t>=b.tou.length)st.t=0;
+function detail(){const b=BY[st.b];if(RECENT[0]!==b.id){const i=RECENT.indexOf(b.id);if(i>=0)RECENT.splice(i,1);RECENT.unshift(b.id);if(RECENT.length>10)RECENT.length=10;save("au_recent",RECENT)}if(st.t>=b.tou.length)st.t=0;
  const ks=rooms(b,st.t),lay=LAY[tk(b,st.t)],c=stats(allRooms(b));
  let body="";
  if(!lay)body=setupForm(b);
@@ -159,7 +157,7 @@ function detail(){const b=BY[st.b];if(st.t>=b.tou.length)st.t=0;
  const touHTML=b.tou.length>1?`<div class="small" style="margin-top:10px">棟を選ぶ（${b.tou.length}棟）</div><div class="tous">${b.tou.map((t,i)=>`<button data-t="${i}" aria-pressed="${i===st.t}" class="${LAY[tk(b,i)]?"done":""}">${esc(t)}</button>`).join("")}</div>`:"";
  return `<button class="back" id="back"><span class="ar">‹</span><span>${backLabel()}</span><span class="bn">${esc(b.name)}</span></button><div class="dt">
  <div class="top" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">${isHot(b)?'<span class="tag hot">🔥未着手</span>':""}${KIND[b.kind]}${VTAG(b)}</div>
- <h2>${esc(b.name)}</h2><div class="addr">${esc(b.addr)}${b.nt>1?`・${b.nt}棟`:""}${(()=>{const z=sizeOf(b);return z.kai?`・${z.kai}階建${z.kosu?"・"+z.kosu+"戸":""}${z.per?`（1フロア約${z.per}戸）`:""}`:""})()}</div>${roomTxt(b)&&(ROLE==="own"||isPub(b))?`<div style="font-weight:700;margin-top:4px">🏠 ${esc(roomTxt(b))}</div>`:""}
+ <div class="h2row"><h2>${esc(b.name)}</h2><button class="fav" id="favb" aria-pressed="${!!FAV[b.id]}">${FAV[b.id]?"★ 気になる":"☆ 気になる"}</button></div><div class="addr">${esc(b.addr)}${b.nt>1?`・${b.nt}棟`:""}${(()=>{const z=sizeOf(b);return z.kai?`・${z.kai}階建${z.kosu?"・"+z.kosu+"戸":""}${z.per?`（1フロア約${z.per}戸）`:""}`:""})()}</div>${roomTxt(b)&&(ROLE==="own"||isPub(b))?`<div style="font-weight:700;margin-top:4px">🏠 ${esc(roomTxt(b))}</div>`:""}
  ${allRooms(b).length?barHTML(allRooms(b))+`<div class="nums" style="margin-top:4px">${["mi",...PICK,"ke"].filter(s=>s==="mi"||c[s]).map(s=>RES[s].l+" "+c[s]).join("／")}${c.dg?`／<span style="color:var(--r-ke-t);font-weight:700">⚠危険 ${c.dg}</span>`:""}</div>`:""}
  <details id="bdet" class="det" ${st.detOpen||st.editMemo?"open":""}><summary>物件の詳細（ネット情報・メモ・地図）</summary>
  <div class="nums" style="margin-top:4px"><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.addr+" "+b.name)}" target="_blank" rel="noopener">Googleマップで見る</a>　<a href="https://www.google.com/search?q=${encodeURIComponent(b.name+" "+b.city+" site:suumo.jp")}" target="_blank" rel="noopener">SUUMOで探す</a>　<a href="https://www.google.com/search?q=${encodeURIComponent(b.name+" "+b.city+" site:homes.co.jp")}" target="_blank" rel="noopener">HOME'Sで探す</a>　<a href="https://www.google.com/search?q=${encodeURIComponent(b.name+" "+b.addr+" 間取り")}" target="_blank" rel="noopener">Googleで探す</a>${b.lat!=null?`　<a href="https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}" target="_blank" rel="noopener">道案内</a>`:""}</div>
@@ -173,6 +171,31 @@ function detail(){const b=BY[st.b];if(st.t>=b.tou.length)st.t=0;
  ${body}
  ${(()=>{const hs=bHist(b);return hs.length?`<details id="hdet" class="det" ${st.hOpen?"open":""}><summary>この物件の訪問記録（${hs.length}件）</summary><ul class="hist2">${hs.slice(0,30).map(h=>`<li><span class="who">${when(h)}</span><b>${esc(h.w)}</b><span>${h.tou?esc(h.tou)+" ":""}${h.room}</span><span>${chip(h.s)} ${esc(h.m||"")}</span></li>`).join("")}</ul></details>`:""})()}</div>`}
 function allRecs(){const out=[];Object.keys(H).forEach(k=>{const b=BY[k.split("#")[0]];if(!b)return;const ti=+k.split("#")[1].split("-")[0];H[k].forEach(h=>out.push({...h,b,room:k.split("-").pop(),tou:b.tou.length>1?b.tou[ti]:""}))});return out.sort((x,y)=>(y.t||0)-(x.t||0))}
+// 物件のカード（一覧・マイページで使う）
+function bCard(b){const ks=allRooms(b),c=stats(ks);return `<button class="bcard" data-b="${b.id}">
+  <div class="top"><b>${esc(b.name)}</b>${FAV[b.id]?'<span class="tag favt">★</span>':""}${isHot(b)?'<span class="tag hot">🔥未着手</span>':""}${KIND[b.kind]}${VTAG(b)}${MM[b.id]&&ROLE==="own"?'<span class="tag as">📝メモ</span>':""}${st.near&&st.pos?`<span class="dist">${dtxt(km(b))}</span>`:""}</div>
+  <div class="addr">${esc(b.addr)}${b.nt>1?`・${b.nt}棟`:""}</div>${roomTxt(b)&&(ROLE==="own"||isPub(b))?`<div class="nums" style="color:var(--fg)">🏠 ${esc(roomTxt(b))}</div>`:""}${ks.length?barHTML(ks)+`<div class="nums">未訪問 ${c.mi}／不在 ${c.fu}／検討 ${c.kn}／契約 ${c.ok}${c.dg?`／<span style="color:var(--r-ke-t);font-weight:700">⚠${c.dg}</span>`:""}</div>`:""}</button>`}
+// ===== マイページ（自分の記録・気になる・最近見た物件）=====
+// ★気になる（au_fav）と最近見た物件（au_recent）は、このスマホにだけ保存する
+const FAV=load("au_fav",{}),RECENT=load("au_recent",[]);
+function my(){if(!ME)return `<div class="note"><b>名前が選ばれていません</b>通信インフラの画面で名前を選ぶと、自分の記録が出ます。<div style="margin-top:8px"><a class="chg" href="./">名前を選ぶ</a></div></div>`;
+ const R=allRecs().filter(h=>h.w===ME),now=new Date(),m0=new Date(now.getFullYear(),now.getMonth(),1).getTime(),td=now.toDateString();
+ const sum=a=>({v:a.length,kn:a.filter(h=>h.s==="kn").length,ok:a.filter(h=>h.s==="ok").length});
+ const T=sum(R.filter(h=>h.t&&new Date(h.t).toDateString()===td)),M=sum(R.filter(h=>(h.t||0)>=m0));
+ // 自分の検討：その部屋のいちばん新しい記録が、自分の「検討」
+ const kn=[];Object.keys(H).forEach(k=>{const l=last(k),b=BY[+k.split("#")[0]];if(l&&l.s==="kn"&&l.w===ME&&b)kn.push({k,b,l,no:k.split("-").pop(),tou:b.tou.length>1?b.tou[+k.split("#")[1].split("-")[0]]:""})});kn.sort((a,b)=>(a.l.t||0)-(b.l.t||0));
+ // 自分が回った物件（新しい順）
+ const byB={};R.forEach(h=>{const x=byB[h.b.id]||(byB[h.b.id]={b:h.b,t:0,rooms:new Set(),ok:0,kn:0});x.t=Math.max(x.t,h.t||0);x.rooms.add(h.tou+"-"+h.room);if(h.s==="ok")x.ok++;if(h.s==="kn")x.kn++});
+ const went=Object.values(byB).sort((a,b)=>b.t-a.t);
+ const favs=Object.keys(FAV).map(id=>BY[+id]).filter(Boolean),rec=RECENT.map(id=>BY[id]).filter(Boolean);
+ const sec=(title,n,body,empty)=>`<h3 class="myh">${title}${n?` <span class="myn">${n}</span>`:""}</h3>${n?body:`<p class="lead">${empty}</p>`}`;
+ const ago=t=>{const d=Math.floor((Date.now()-t)/864e5);return d<=0?"今日":d+"日前"};
+ return `<div class="mytop"><b>${esc(ME)} さん</b><div class="mystat"><div><span>今日</span><b>${T.v}</b>部屋<small>検討 ${T.kn}・契約 ${T.ok}</small></div><div><span>今月</span><b>${M.v}</b>部屋<small>検討 ${M.kn}・契約 ${M.ok}</small></div></div></div>`
+ +sec("🔁 自分の検討（もう一度行く部屋）",kn.length,`<div class="list">${kn.slice(0,30).map(x=>`<button class="bcard" data-b="${x.b.id}"><div class="top"><b>${esc(x.b.name)}</b><span class="tag">${esc(x.tou?x.tou+" ":"")}${esc(x.no)}号室</span></div><div class="nums">${when(x.l)}（${ago(x.l.t||0)}）${x.l.m?"「"+esc(x.l.m)+"」":""}</div></button>`).join("")}</div>`,"検討のままの部屋はありません。")
+ +sec("★ 気になる",favs.length,`<div class="list">${favs.map(bCard).join("")}</div>`,"物件ページの「☆ 気になる」を押すと、ここに集まります。")
+ +sec("🚶 自分が回った物件",went.length,`<div class="list">${went.slice(0,30).map(x=>`<button class="bcard" data-b="${x.b.id}"><div class="top"><b>${esc(x.b.name)}</b>${FAV[x.b.id]?'<span class="tag favt">★</span>':""}</div><div class="addr">${esc(x.b.addr)}</div><div class="nums">最後に行った日 ${x.t?md(x.t):"-"}（${x.t?ago(x.t):"-"}）／${x.rooms.size}部屋${x.kn?"・検討 "+x.kn:""}${x.ok?"・契約 "+x.ok:""}</div></button>`).join("")}</div>`,"まだ記録がありません。")
+ +sec("🕘 最近見た物件",rec.length,`<div class="list">${rec.map(bCard).join("")}</div>`,"まだありません。")}
+const md=t=>{const d=new Date(t);return (d.getMonth()+1)+"/"+d.getDate()};
 function news(){if(ROLE==="agency")return `<p class="lead">公開された物件は「物件」タブに出ます（いま ${VIS().length}件）。</p>`;
  const R=allRecs(),now=Date.now(),D=864e5;const ok=R.filter(h=>h.s==="ok");const ok30=ok.filter(h=>h.t&&now-h.t<30*D);
  const byB={};ok30.forEach(h=>{(byB[h.b.id]=byB[h.b.id]||{b:h.b,n:0,who:new Set()}).n++;byB[h.b.id].who.add(h.w)});const hotB=Object.values(byB).sort((a,b)=>b.n-a.n).slice(0,10);
@@ -285,6 +308,7 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
  if(t.id==="more"){st.lim+=100;const y=scrollY;render();scrollTo(0,y);return}
  if(t.dataset.b){if(+t.dataset.b===st.b)return;if(st.v==="list"&&!st.b)listY.y=scrollY;STK.push({v:st.v,b:st.b,t:st.t,y:scrollY});if(STK.length>20)STK.shift();st.v="list";st.b=+t.dataset.b;st.t=0;render();return pushH()}
  if(t.dataset.t){st.t=+t.dataset.t;return render()}
+ if(t.id==="favb"&&st.b){if(FAV[st.b])delete FAV[st.b];else FAV[st.b]=Date.now();save("au_fav",FAV);const y=scrollY;render();scrollTo(0,y);return toast(FAV[st.b]?"★ 気になるに入れました（マイページで見られます）":"気になるから外しました")}
  if(t.id==="back"){st.editMemo=false;st.ed=false;const pv=STK.pop();if(pv){st.v=pv.v;st.b=pv.b;st.t=pv.t||0}else{st.v="list";st.b=null}render();pushH();const y=pv?pv.y:listY.y;if(y)setTimeout(()=>scrollTo(0,y),0);return}
  if(t.id==="clr"){st.f="";st.mg="";st.lk="";keep();return render()}
  if(t.id==="edt"){st.ed=!st.ed;st.mode="list";return render()}

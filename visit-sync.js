@@ -37,7 +37,7 @@
   function boot(d) {
     window.BLD = d.bld; window.DBX = d.dbx; window.META = { updated: d.ver };
     const s = document.createElement('script'); s.src = 'visit.js'; document.body.appendChild(s);
-    const e = document.getElementById('vload'); if (e) e.remove();
+    // 「読み込んでいます…」は visit.js が画面を作るときに消える
   }
   idbGet('data').then(have => {
     if (have) boot(have);
@@ -172,6 +172,8 @@
   const saved = get(K.state, null) || { H: {}, LAY: {}, MM: {}, DGR: {} };
   queue.forEach(p => applyOp(saved, p));
   fill(saved);
+  // 下のタブの「カウンター」「ランキング」：通信インフラが開く画面（hkView）を決めてから移る
+  document.addEventListener('click', e => { const b = e.target.closest('[data-to]'); if (b) { set('hkView', b.dataset.to); home(); } });
   // 上のバーの名前（押すと通信インフラで名前を選び直せる）
   const vme = document.getElementById('vme'); if (vme) vme.textContent = me() ? me() : '名前を選ぶ';
 })();

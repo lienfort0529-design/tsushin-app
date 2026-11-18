@@ -160,3 +160,51 @@ body.wide .wrap,body.wide .hd{max-width:1200px}
 .cust input,.cust select{font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg,#fff);color:inherit}
 .cust .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cust .err{color:#c0392b;font-weight:700;min-height:1em}
+
+/* ===== 通信インフラに合わせる（2026-11-18）=====
+   形・文字・紺のバー・下のタブは通信インフラと同じ。差し色は金ではなく au のオレンジにして「訪問」の画面だと分かるようにする。
+   結果の色はカウンターのボタンの色（app.js の COLORS）に寄せる：不在＝灰、NG＝青（段階ごとに濃く）、獲得（契約）＝赤、対象外（加入済み）＝濃い灰 */
+:root{
+  --ink:#0b1e30; --bg:#f7f5f0; --card:#ffffff; --fg:#0b1e30; --sub:#5c6672; --line:#e4e2dc;
+  --accent:#e35400; --au:#eb5505;
+  --font:"Noto Sans JP","Hiragino Kaku Gothic ProN","Hiragino Sans",sans-serif;
+  --r-mi:#eef0f2; --r-mi-t:#6b7480;
+  --r-fu:#8a8f98; --r-fu-t:#ffffff;
+  --r-ih:#cfe0f1; --r-ih-t:#1d4f80;
+  --r-fr:#6fa5d6; --r-fr-t:#ffffff;
+  --r-so:#2980b9; --r-so-t:#ffffff;
+  --r-kn:#f5c542; --r-kn-t:#4a3600;
+  --r-ok:#d9534f; --r-ok-t:#ffffff;
+  --r-ka:#555555; --r-ka-t:#ffffff;
+}
+.s-fu{background:var(--r-fu);color:var(--r-fu-t)}
+.s-ih{background:var(--r-ih);color:var(--r-ih-t)}
+.s-fr{background:var(--r-fr);color:var(--r-fr-t)}
+.s-so{background:var(--r-so);color:var(--r-so-t)}
+.s-kn{background:var(--r-kn);color:var(--r-kn-t)}
+.s-ok{background:var(--r-ok);color:var(--r-ok-t)}
+.s-ka{background:var(--r-ka);color:var(--r-ka-t);border:0}
+.btns button[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px #fff inset}
+input,select,textarea{border-radius:10px}
+
+/* 上の紺のバー（通信インフラの #top と同じ形）＋オレンジの線と「訪問」の札 */
+body::before{background:var(--ink)}
+header{background:var(--ink);color:#fff;border:0;box-shadow:inset 0 -3px 0 var(--au)}
+.hd{display:flex;align-items:center;gap:10px;padding-block:10px 13px}
+.hd .mk{width:30px;height:30px;flex:none;mix-blend-mode:lighten}
+.hd .vt{flex:1;display:flex;align-items:center;gap:8px;font-size:17px;font-weight:700;letter-spacing:.05em}
+.vtag{font-size:11px;font-weight:700;letter-spacing:.1em;background:var(--au);color:#fff;border-radius:4px;padding:2px 7px}
+.vhome{color:#fff;text-decoration:none;font-size:13px;opacity:.85;white-space:nowrap}
+.vme{border:1px solid rgba(255,255,255,.3);color:#fff;text-decoration:none;border-radius:999px;padding:5px 12px;font-size:13px;white-space:nowrap;max-width:9em;overflow:hidden;text-overflow:ellipsis}
+.who-bar,.role{display:none!important}
+
+/* 下のタブ（通信インフラの #tabs と同じ形。アイコン＋文字、選んだものはオレンジ） */
+.tabs{background:#fff;border-top:1px solid var(--line);padding:0 0 env(safe-area-inset-bottom,0px)}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;border-top:0;padding:8px 0 7px;font-size:11px;font-weight:500;color:var(--sub)}
+.tab svg{width:24px;height:24px}
+.tab[aria-selected="true"]{color:var(--accent);font-weight:700;border-top:0}
+.tab .badge{position:absolute;top:4px;left:calc(50% + 8px);margin:0}
+.tab[data-go]{color:var(--sub)}
+.cust[hidden]{display:none}
+.cust input,.cust select{width:100%;box-sizing:border-box;min-width:0}
+[hidden]{display:none!important}

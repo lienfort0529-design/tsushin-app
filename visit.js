@@ -125,7 +125,7 @@ function listRes(a){return ` ${st.view==="map"?`<div id="map" role="region" aria
  ${a.length>st.lim?`<button class="more" id="more">さらに表示（残り ${(a.length-st.lim).toLocaleString()}件）</button>`:""}`}`}
 const age=m=>{const y=m&&String(m.shunko||"").match(/(19|20)\d\d/);return y?new Date().getFullYear()-+y[0]:null};
 const lockOf=m=>{const l=m&&m.lock||"";if(/^不明/.test(l))return "est";if(!l||/不確実|棟により/.test(l))return "";if(/^なし|オートロックなし/.test(l))return "no";return "yes"};
-function roomTxt(b){const m=memOf(b);if(!Object.keys(m).length)return b.est==="s"?"単身向け（推定）":b.est==="f"?"ファミリー向け（推定）":"";const g=age(m);const a=[m.madori||(b.est==="s"?"単身向け（推定）":b.est==="f"?"ファミリー向け（推定）":""),m.menseki?m.menseki+"㎡":"",m.yachin?m.yachin+"万円":"",g!=null?"築"+g+"年":"",lockOf(m)==="yes"?"🔒オートロック":lockOf(m)==="no"?"オートロックなし":lockOf(m)==="est"?"オートロックなし（推定）":""].filter(x=>x);return a.join("・")}
+function roomTxt(b){const m=memOf(b);if(!Object.keys(m).length)return b.est==="s"?"単身向け（推定）":b.est==="f"?"ファミリー向け（推定）":"";const g=age(m);const a=[m.madori||(b.est==="s"?"単身向け（推定）":b.est==="f"?"ファミリー向け（推定）":""),m.menseki?m.menseki+"㎡":"",m.yachin?String(m.yachin).replace(/万円?$/,"")+"万円":"",g!=null?"築"+g+"年":"",lockOf(m)==="yes"?"🔒オートロック":lockOf(m)==="no"?"オートロックなし":lockOf(m)==="est"?"オートロックなし（推定）":""].filter(x=>x);return a.join("・")}
 // 間取りのグループ
 const MG=[["","間取り：すべて"],["s","1R・1K"],["d1","1DK・1LDK"],["f2","2K〜2LDK"],["f3","3DK以上"]];
 function mgOf(m){const t=(m&&m.madori||"").toUpperCase().normalize("NFKC");if(!t)return "";if(/^1(R|K)\b|^1R|^1K$/.test(t)||t==="1R"||t==="1K")return "s";if(/^1(DK|LDK|SLDK)/.test(t))return "d1";if(/^2/.test(t))return "f2";if(/^[3-9]/.test(t))return "f3";if(/ファミリー/.test(t))return "f2";return ""}
@@ -260,7 +260,7 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
  if(t.id==="shade")return closeRoom();
  if(t.dataset.undo){t.closest(".toast").remove();const k=t.dataset.undo;if(st.room&&st.room!==k)closeRoom();delRec(k,+t.dataset.i);if(st.room===k)openRoom(k);return}
  if(t.dataset.del!=null&&st.room){const k=st.room,i=+t.dataset.del;if(st.delAsk!==k+"/"+i){st.delAsk=k+"/"+i;t.textContent="もう一度で取り消し";return}st.delAsk=null;delRec(k,i);return openRoom(k)}
- if(t.classList.contains("tab")){STK.length=0;const fromB=st.b&&t.dataset.v==="list";st.editMemo=false;st.ed=false;st.v=t.dataset.v;st.b=null;render();pushH();if(fromB&&listY.y)setTimeout(()=>scrollTo(0,listY.y),0);return}
+ if(t.classList.contains("tab")&&t.dataset.v){STK.length=0;const fromB=st.b&&t.dataset.v==="list";st.editMemo=false;st.ed=false;st.v=t.dataset.v;st.b=null;render();pushH();if(fromB&&listY.y)setTimeout(()=>scrollTo(0,listY.y),0);return}
  if(t.dataset.src){st.src=t.dataset.src;st.lim=50;keep();return render()}
  if(t.dataset.mg!==undefined){st.mg=t.dataset.mg;st.lim=50;keep();return render()}
  if(t.dataset.lk!==undefined){st.lk=t.dataset.lk;st.lim=50;keep();return render()}

@@ -172,4 +172,6 @@
   const saved = get(K.state, null) || { H: {}, LAY: {}, MM: {}, DGR: {} };
   queue.forEach(p => applyOp(saved, p));
   fill(saved);
+  // 上のバーの名前（押すと通信インフラで名前を選び直せる）
+  const vme = document.getElementById('vme'); if (vme) vme.textContent = me() ? me() : '名前を選ぶ';
 })();

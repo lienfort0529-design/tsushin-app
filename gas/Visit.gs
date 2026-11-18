@@ -95,6 +95,7 @@ function visitPush(ops) {
           const i = logRows.findIndex(v => String(v[8]) === String(o.rid) && String(v[2]) === name && v[9] === '');
           if (i >= 0) log.getRange(i + 2, 10).setValue(new Date());
         }
+        visitUndoCounter_(ss, String(o.rid), name);
       } else if (o.op === 'lay') {
         if (TOU_KEY_RE.test(o.key)) upsert(VISIT_LAY_SHEET, VISIT_LAY_HEAD, o.key, o.lay == null ? null : JSON.stringify(o.lay), ts, name);
       } else if (o.op === 'memo') {
@@ -150,4 +151,24 @@ function visitData(have) {
   if (have && String(have) === ver) return { ver: ver, same: true };
   const gz = sh.getRange(2, 1, n - 1, 1).getValues().map(v => String(v[0]).trim().replace(/^x/, '')).join('');
   return { ver: ver, gz: gz };
+}
+
+// 訪問の記録を取り消したら、カウンター（活動ログ）に同じ ID で入っている1件も消す（獲得なら顧客進捗の行も）。
+// undoLast と同じやり方。自分の記録だけ
+function visitUndoCounter_(ss, id, name) {
+  const log = ss.getSheetByName(LOG_SHEET);
+  if (!log) return;
+  const { rows, offset } = recent_(log);
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (String(rows[i][4]) !== id || rows[i][2] !== name) continue;
+    log.deleteRow(offset + i);
+    if (rows[i][3] === '獲得') AREAS.forEach(ar => {
+      const a = appSheet_(ar, ss), n = a ? lastFilled_(a) : 0;
+      const ids = n > 1 ? a.getRange(2, APP_HEAD.length, n - 1, 1).getValues().flat() : [];
+      const j = ids.lastIndexOf(id);
+      if (j >= 0) a.deleteRow(j + 2);
+    });
+    clearStats_();
+    return;
+  }
 }

@@ -6,7 +6,7 @@
 (() => {
   // app.js の API_URL と同じ（変えるときは両方）
   const API_URL = 'https://script.google.com/macros/s/AKfycbzALOLUN8rAom2b6fXmlA0zV5raPXSY-KrRAtZnPNrxznetLprUi687Jy6v0dgKTxzz/exec';
-  const K = { pass: 'hkPass', name: 'hkName', admin: 'hkAdmin', state: 'hkVisitState', q: 'hkVisitQ' };
+  const K = { pass: 'hkPass', name: 'hkName', admin: 'hkAdmin', cfg: 'hkCfg', area: 'hkArea', counter: 'hkQueue', state: 'hkVisitState', q: 'hkVisitQ' };
   const get = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } };
   const set = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
   const home = () => { location.href = './'; };
@@ -57,6 +57,34 @@
   const RL = { fu: '不在', ih: 'インターホンNG', fr: 'フロントNG', so: 'トーク後NG', kn: '検討', ok: '契約', ka: '加入済み', ak: '空室' };
   const LR = Object.fromEntries(Object.entries(RL).map(([k, v]) => [v, k]));
   const KEYS = { au_hist: 'H', au_layout: 'LAY', au_memo: 'MM', au_danger: 'DGR' };
+
+  // ===== カウンターにも数える =====
+  // 訪問の結果 → カウンターの結果。空室は数えない。検討はカウンターに「検討」があるときだけ
+  const COUNT = { fu: '不在', ih: 'インターホンNG', fr: 'フロントNG', so: 'トーク後NG', kn: '検討', ok: '獲得', ka: '対象外' };
+  const cfg = () => get(K.cfg, {}) || {};
+  const counted = s => !!COUNT[s] && (cfg().results || []).includes(COUNT[s]);
+  // 物件は大阪府なので、エリアは「大阪」（無ければカウンターで選んだエリア）
+  const areaOf = () => (cfg().areas || []).includes('大阪') ? '大阪' : get(K.area, '');
+  // カウンターと同じ「未送信」の箱（hkQueue）に、訪問の記録と同じ ID で入れる。カウンターの画面に戻っても数がそろう
+  function toCounter(x) {
+    if (!counted(x.s)) return;
+    const q = get(K.counter, []);
+    if (q.some(p => p.id === x.id)) return;
+    q.push(Object.assign({ id: x.id, name: x.w, result: COUNT[x.s], ts: x.t, area: areaOf(), from: 'visit' }, x.s === 'ok' ? x.cust || {} : {}));
+    set(K.counter, q);
+  }
+  // 取り消し：まだ送っていなければ箱から外す（送ったあとの分は visitPush の del で Apps Script が消す）
+  const fromCounter = id => set(K.counter, get(K.counter, []).filter(p => p.id !== id));
+  let cSending = false;
+  function flushCounter() {
+    const mine = get(K.counter, []).filter(p => p.from === 'visit');
+    if (cSending || !mine.length || !navigator.onLine) return;
+    cSending = true;
+    api('addRecords', mine.slice(0, 50)).then(r => {
+      const done = new Set(r.ids || []);
+      set(K.counter, get(K.counter, []).filter(p => !done.has(p.id)));
+    }).catch(() => {}).finally(() => { cSending = false; });
+  }
   const md = t => { const d = new Date(t); return String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0'); };
   const clone = o => JSON.parse(JSON.stringify(o));
   const me = () => { const n = get(K.name, ''); return n === '（管理者）' ? '' : n; };
@@ -92,8 +120,8 @@
     const keys = new Set(Object.keys(a).concat(Object.keys(b)));
     if (n === 'H') {
       const was = {}; Object.values(a).forEach(h => h.forEach(x => was[x.id] = x));
-      const now = {}; Object.keys(b).forEach(k => b[k].forEach(x => { if (!x.id) x.id = uid(); now[x.id] = 1; if (!was[x.id] && RL[x.s]) ops.push({ op: 'rec', id: x.id, name: x.w || name, ts: x.t || ts, key: k, result: RL[x.s], memo: x.m || '' }); }));
-      Object.keys(was).forEach(id => { if (!now[id]) ops.push({ op: 'del', id: uid(), name: name, rid: id }); });
+      const now = {}; Object.keys(b).forEach(k => b[k].forEach(x => { if (!x.id) x.id = uid(); now[x.id] = 1; if (!was[x.id] && RL[x.s]) { ops.push({ op: 'rec', id: x.id, name: x.w || name, ts: x.t || ts, key: k, result: RL[x.s], memo: x.m || '' }); if ((x.w || name) === name) toCounter(Object.assign({}, x, { w: name, t: x.t || ts })); delete x.cust; } }));
+      Object.keys(was).forEach(id => { if (!now[id]) { ops.push({ op: 'del', id: uid(), name: name, rid: id }); fromCounter(id); } });
     } else keys.forEach(k => {
       if (JSON.stringify(a[k]) === JSON.stringify(b[k])) return;
       if (n === 'LAY') ops.push({ op: 'lay', id: uid(), name: name, ts: ts, key: k, lay: b[k] == null ? null : b[k] });
@@ -127,16 +155,16 @@
       prev[n] = clone(v); set(K.state, prev);
       if (!ops.length) return;
       queue = queue.concat(ops); set(K.q, queue);
-      flush();
+      flush(); flushCounter();
     },
-    me: me, id: uid,
+    me: me, id: uid, counted: counted, products: () => cfg().products || [],
     admin: () => !!get(K.admin, ''),
     note: t => { const e = document.createElement('div'); e.className = 'toast'; e.textContent = t; document.body.appendChild(e); setTimeout(() => e.remove(), 4000); },
     // visit.js の最後に呼ばれる。redraw は画面を作り直せたら true を返す
     start(redraw) {
-      onData = redraw; flush();
-      setInterval(() => { if (!document.hidden) { if (waiting && onData) waiting = !onData(); flush(); } }, 30000);
-      addEventListener('online', flush);
+      onData = redraw; flush(); flushCounter();
+      setInterval(() => { if (!document.hidden) { if (waiting && onData) waiting = !onData(); flush(); flushCounter(); } }, 30000);
+      addEventListener('online', () => { flush(); flushCounter(); });
       document.addEventListener('visibilitychange', () => { if (!document.hidden) flush(); });
     },
   };

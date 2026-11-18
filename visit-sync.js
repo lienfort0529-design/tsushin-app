@@ -174,6 +174,32 @@
   fill(saved);
   // 下のタブの「カウンター」「ランキング」：通信インフラが開く画面（hkView）を決めてから移る
   document.addEventListener('click', e => { const b = e.target.closest('[data-to]'); if (b) { set('hkView', b.dataset.to); home(); } });
+  // ===== 🛠 直してほしい（不具合・要望）=====
+  // どの画面からでも送れる。名前・日時・画面・スマホの種類・直前のエラーは自動で付ける。電波がなければ記録と同じくためて送る
+  let lastErr = '';
+  addEventListener('error', e => { lastErr = String(e.message || '').slice(0, 300); });
+  addEventListener('unhandledrejection', e => { lastErr = String((e.reason && e.reason.message) || e.reason || '').slice(0, 300); });
+  const KINDS = ['動かない', '使いにくい', 'こうしてほしい', 'その他'];
+  const where = () => { const h = document.querySelector('#app h2'), r = document.querySelector('#layer .sheet b'); return (location.hash || '#list') + (h ? ' ' + h.textContent : '') + (r ? ' / ' + r.textContent : ''); };
+  function openFeedback() {
+    const at = where(), layer = document.getElementById('layer');
+    let kind = '';
+    layer.innerHTML = '<div class="shade" id="shade"></div><div class="sheet" role="dialog" aria-label="直してほしい"><div class="in"><div class="grab"></div>'
+      + '<b style="font-size:18px">🛠 直してほしいこと</b><p class="fbp">「ここを変えてほしい」「動かない」を気軽に送ってください。名前と今の画面は自動で付きます。</p>'
+      + '<div class="fbk">' + KINDS.map(k => '<button type="button" class="chip" data-fbk="' + k + '" aria-pressed="false">' + k + '</button>').join('') + '</div>'
+      + '<label for="fbt" class="addr">どう変えてほしい？（ひとことでOK）</label><textarea id="fbt" placeholder="例：部屋を作るボタンが押せない／結果の色をもっと見分けやすくしてほしい"></textarea>'
+      + '<div class="fberr" id="fberr"></div><button class="save" id="fbsend" type="button">送る</button></div></div>';
+    layer.querySelectorAll('[data-fbk]').forEach(b => b.onclick = () => { kind = b.dataset.fbk; layer.querySelectorAll('[data-fbk]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+    document.getElementById('fbsend').onclick = () => {
+      const text = document.getElementById('fbt').value.trim();
+      if (!kind && !text) { document.getElementById('fberr').textContent = '種類を選ぶか、内容を書いてください'; return; }
+      const name = me() || get(K.name, '') || '名前なし';
+      queue.push({ op: 'fb', id: uid(), name: name, ts: Date.now(), kind: kind || 'その他', text: text, where: at, ua: navigator.userAgent, err: lastErr });
+      set(K.q, queue); layer.innerHTML = ''; VS.note('送りました。直したらお知らせします！'); flush();
+    };
+  }
+  const fbBtn = document.getElementById('vfb'); if (fbBtn) fbBtn.onclick = openFeedback;
+
   // 上のバーの名前（押すと通信インフラで名前を選び直せる）
   const vme = document.getElementById('vme'); if (vme) vme.textContent = me() ? me() : '名前を選ぶ';
 })();

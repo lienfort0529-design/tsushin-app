@@ -18,6 +18,9 @@ const VISIT_LAY_HEAD = ['棟のキー', '形（JSON）', '更新日時', '名前
 const VISIT_MEMO_HEAD = ['物件ID', '内容（JSON）', '更新日時', '名前'];
 // 危険の印の列：A部屋のキー B付けた人 C日時 Dメモ（印を外すと行を消す）
 const VISIT_DANGER_HEAD = ['部屋のキー', '付けた人', '日時', 'メモ'];
+// 直してほしい（アプリの「🛠 直してほしい」から。不具合・要望）：A日時 B名前 C種類 D内容 E画面 F端末 G直前のエラー H ID I対応（管理者が書く）
+const FEEDBACK_SHEET = '直してほしい', FEEDBACK_HEAD = ['日時', '名前', '種類', '内容', '画面', '端末', '直前のエラー', 'ID', '対応'];
+const FEEDBACK_KINDS = ['動かない', '使いにくい', 'こうしてほしい', 'その他'];
 
 const ROOM_KEY_RE = /^[\w.]+#\d+-[^#\s]{1,20}$/, TOU_KEY_RE = /^[\w.]+#\d+$/, BID_RE = /^[\w.]+$/;
 
@@ -67,6 +70,7 @@ function visitPull() {
 //   {op:'lay',   id, name, ts, key, lay}           棟の部屋の形（lay が null なら消す）
 //   {op:'memo',  id, name, ts, bid, memo}          自社メモ（物件ごとに丸ごと置き換え）
 //   {op:'dgr',   id, name, ts, key, on, memo}      ⚠危険の印を付ける（on:true）／外す（on:false）
+//   {op:'fb',    id, name, ts, kind, text, where, ua, err}  直してほしい（「直してほしい」シートに1行。同じ id は二重に入れない）
 // 部屋の形・自社メモは、シートの方が新しければ上書きしない（電波が戻ったときに古い内容で消さないため）
 // 返すもの：{ids: 受け取った id, data: visitPull() と同じもの}
 function visitPush(ops) {
@@ -102,6 +106,8 @@ function visitPush(ops) {
         if (BID_RE.test(o.bid) && o.memo && typeof o.memo === 'object') upsert(VISIT_MEMO_SHEET, VISIT_MEMO_HEAD, o.bid, JSON.stringify(o.memo), ts, name);
       } else if (o.op === 'dgr') {
         if (ROOM_KEY_RE.test(o.key)) visitDanger_(ss, o.key, !!o.on, name, ts, String(o.memo || '').slice(0, 500));
+      } else if (o.op === 'fb') {
+        visitFeedback_(ss, o, name, ts);
       }
       done.push(o.id);
     });
@@ -171,4 +177,13 @@ function visitUndoCounter_(ss, id, name) {
     clearStats_();
     return;
   }
+}
+
+// 直してほしいことを「直してほしい」シートに1行足す（同じ ID は入れない）
+function visitFeedback_(ss, o, name, ts) {
+  const sh = visitSheet_(ss, FEEDBACK_SHEET, FEEDBACK_HEAD), id = String(o.id || '');
+  const n = sh.getLastRow(), ids = n > 1 ? sh.getRange(2, 8, n - 1, 1).getValues().flat().map(String) : [];
+  if (!id || ids.includes(id)) return;
+  const cut = (v, m) => String(v || '').slice(0, m);
+  sh.appendRow([new Date(ts), name, FEEDBACK_KINDS.includes(o.kind) ? o.kind : 'その他', cut(o.text, 2000), cut(o.where, 300), cut(o.ua, 200), cut(o.err, 300), id, '']);
 }

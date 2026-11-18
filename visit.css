@@ -224,3 +224,13 @@ header{background:var(--ink);color:#fff;border:0;box-shadow:inset 0 -3px 0 var(-
 .fav{flex:none;border:1px solid var(--line);background:#fff;color:var(--sub);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
 .fav[aria-pressed="true"]{background:#fff4d6;border-color:#f0b429;color:#a46b00}
 .tag.favt{background:#fff4d6;color:#a46b00}
+
+/* 🛠 直してほしい */
+.vfb{border:0;background:var(--au);color:#fff;border-radius:999px;padding:5px 11px;font:inherit;font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer}
+.fbp{margin:6px 0 10px;color:var(--sub);font-size:13px}
+.fbk{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.fbk .chip[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+.fberr{color:#c0392b;font-weight:700;font-size:13px;min-height:1em;margin-top:4px}
+.hd .vt,.vtag,.vfb{white-space:nowrap}
+.hd .vt{min-width:0}
+@media (max-width:420px){.hd{gap:7px}.hd .mk{width:26px;height:26px}.hd .vt{font-size:15px;gap:5px}.vtag{font-size:10px;padding:1px 5px}.vfb{padding:5px 9px;font-size:11px}.vme{max-width:5.5em;padding:5px 9px;font-size:12px}}

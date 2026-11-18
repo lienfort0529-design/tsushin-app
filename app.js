@@ -125,8 +125,8 @@ function start() {
 
 // ===== カウンター =====
 // 押した記録はまずスマホに保存し（未送信）、電波があれば送る。電波がない間はたまっていき、戻ったら送る
-const COLORS = { '不在': '#8a8f98', 'インターホンNG': '#2980b9', 'フロントNG': '#2980b9', 'トーク後NG': '#2980b9', '獲得': '#d9534f', '対象外': '#555' };
-const FACE = ['フロントNG', '対象外', 'トーク後NG', '獲得'];
+const COLORS = { '不在': '#8a8f98', 'インターホンNG': '#2980b9', 'フロントNG': '#2980b9', 'トーク後NG': '#2980b9', '検討': '#b8860b', '獲得': '#d9534f', '対象外': '#555' };
+const FACE = ['フロントNG', '対象外', 'トーク後NG', '検討', '獲得'];
 let queue = store.get(KEY.queue, []), sent = {}, busy = false, sending = false, built = false;
 const saveQueue = () => store.set(KEY.queue, queue);
 const sameDay = t => new Date(t).toDateString() === new Date().toDateString();
@@ -173,7 +173,7 @@ function render() {
   const face = FACE.reduce((s, r) => s + (counts[r] || 0), 0);
   $('face').textContent = face;
   $('knock').textContent = face + (counts['不在'] || 0) + (counts['インターホンNG'] || 0);
-  $('talk').textContent = (counts['トーク後NG'] || 0) + (counts['獲得'] || 0);
+  $('talk').textContent = (counts['トーク後NG'] || 0) + (counts['検討'] || 0) + (counts['獲得'] || 0);
   $('apo').textContent = counts['獲得'] || 0;
   renderGoal(Number($('knock').textContent), counts['獲得'] || 0);
   $('prodToday').textContent = cfg.products.map(p => p + ' ' + (prod[p] || 0)).join('・');
@@ -461,7 +461,7 @@ function sumOf(names, p) {
 // 訪問・対面・提案・獲得・率（シートの個人成績と同じ数え方）
 function kpi(x) {
   const c = r => x.c[RI(r)] || 0;
-  const visit = x.c.reduce((a, b) => a + b, 0), face = c('フロントNG') + c('対象外') + c('トーク後NG') + c('獲得'), talk = c('トーク後NG') + c('獲得'), won = c('獲得');
+  const visit = x.c.reduce((a, b) => a + b, 0), face = c('フロントNG') + c('対象外') + c('トーク後NG') + c('検討') + c('獲得'), talk = c('トーク後NG') + c('検討') + c('獲得'), won = c('獲得');
   const r = (a, b) => b ? a / b : null;
   return { visit, face, talk, won, opened: x.o, ng: x.ng, rFace: r(face, visit), rTalk: r(talk, face), rClose: r(won, talk), rWon: r(won, visit), raw: x };
 }

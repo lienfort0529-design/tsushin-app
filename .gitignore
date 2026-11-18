@@ -1,0 +1,4 @@
+# clasp の設定（スクリプトID・ログイン情報）は各自のPCだけに置く
+.clasp.json
+.clasprc.json
+.DS_Store

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; padding: 16px; font-family: -apple-system, sans-serif; background: #f4f5f7; color: #222; }
+  select { width: 100%; font-size: 18px; padding: 10px; border-radius: 10px; border: 1px solid #ccc; }
+  .summary { display: flex; justify-content: space-between; margin: 14px 0; font-size: 15px; }
+  .summary b { font-size: 26px; display: block; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button.r { min-height: 76px; font-size: 17px; font-weight: 600; border: 0; border-radius: 14px; color: #fff; position: relative; }
+  button.r:active { transform: scale(.96); }
+  button.r span { position: absolute; top: 6px; right: 10px; font-size: 14px; opacity: .9; }
+  .undo { margin-top: 14px; width: 100%; padding: 12px; font-size: 16px; border-radius: 10px; border: 1px solid #999; background: #fff; }
+  #msg { text-align: center; min-height: 20px; margin-top: 8px; font-size: 14px; color: #666; }
+  #pending { display: none; margin-top: 10px; padding: 10px; border-radius: 10px; background: #fff3cd; color: #7a5b00; font-size: 14px; text-align: center; }
+  #overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,.6); z-index: 10;
+             align-items: center; justify-content: center; flex-direction: column; font-size: 16px; font-weight: 600; }
+  body.busy #overlay { display: flex; }
+  .spinner { width: 44px; height: 44px; border: 5px solid #ccc; border-top-color: #2980b9; border-radius: 50%;
+             animation: spin .8s linear infinite; margin-bottom: 10px; }
+  #app { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 20; align-items: center; justify-content: center; padding: 16px; }
+  #app.open { display: flex; }
+  #app .box { background: #fff; border-radius: 14px; padding: 18px; width: 100%; max-width: 360px; }
+  #app h3 { margin: 0 0 12px; font-size: 18px; }
+  #app label { display: block; font-size: 14px; color: #555; margin-top: 10px; }
+  #app input, #app select { width: 100%; font-size: 18px; padding: 10px; margin-top: 4px; border-radius: 10px; border: 1px solid #ccc; }
+  #app .err { color: #d9534f; font-size: 14px; min-height: 18px; margin-top: 6px; }
+  #app .btns { display: flex; gap: 10px; margin-top: 8px; }
+  #app .btns button { flex: 1; padding: 12px; font-size: 16px; border-radius: 10px; border: 1px solid #999; background: #fff; }
+  #app .btns .ok { background: #d9534f; color: #fff; border: 0; font-weight: 600; }
+  #app .kana { display: flex; gap: 10px; }
+  #app .kana label { flex: 1; }
+  .area { display: flex; gap: 8px; margin-top: 10px; }
+  .area button { flex: 1; padding: 10px; font-size: 16px; border-radius: 10px; border: 1px solid #ccc; background: #fff; color: #555; }
+  .area button.on { background: #18202e; border-color: #18202e; color: #fff; font-weight: 600; }
+  #prod { text-align: center; font-size: 14px; color: #555; margin: -6px 0 12px; min-height: 18px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <select id="name"><option value="">名前を選択</option></select>
+  <div class="area" id="area"></div>
+  <div class="summary">
+    <div>訪問<b id="knock">0</b></div>
+    <div>対面<b id="face">0</b></div>
+    <div>提案<b id="talk">0</b></div>
+    <div>獲得<b id="apo">0</b></div>
+  </div>
+  <div id="prod"></div>
+  <div class="grid" id="grid"></div>
+  <button class="undo" id="undo">↩ 直前を取り消す</button>
+  <div id="msg"></div>
+  <div id="pending"></div>
+  <div id="app"><div class="box">
+    <h3>獲得を登録</h3>
+    <label>申込日<input type="date" id="appDate"></label>
+    <label>エリア<select id="appArea"></select></label>
+    <label>商材<select id="product"><option value="">選んでください</option></select></label>
+    <label>お客様名<input type="text" id="customer" placeholder="例：山田 太郎"></label>
+    <div class="kana">
+      <label>セイ（カナ）<input type="text" id="sei" placeholder="ヤマダ"></label>
+      <label>メイ（カナ）<input type="text" id="mei" placeholder="タロウ"></label>
+    </div>
+    <div class="err" id="appErr"></div>
+    <div class="btns"><button id="appCancel">やめる</button><button class="ok" id="appOk">登録</button></div>
+  </div></div>
+  <div id="overlay"><div class="spinner"></div><span id="overlayText">記録中…</span></div>
+
+<script>
+  const COLORS = { '不在':'#8a8f98', 'インターホンNG':'#2980b9', 'フロントNG':'#2980b9', 'トーク後NG':'#2980b9',
+                   '獲得':'#d9534f', '対象外':'#555' };
+  const FACE = ['フロントNG','対象外','トーク後NG','獲得'];
+  const $ = id => document.getElementById(id);
+  let results = [], products = [], busy = false, sending = false, sent = {};
+  // エリア（大阪／名古屋）：上で選んだエリアで記録する。前回選んだものを覚える
+  let areas = [], area = '';
+  try { area = localStorage.getItem('area') || ''; } catch (e) {}
+  function drawArea() {
+    $('area').innerHTML = '';
+    areas.forEach(a => {
+      const b = document.createElement('button');
+      b.textContent = a; b.className = a === area ? 'on' : '';
+      b.onclick = () => { area = a; try { localStorage.setItem('area', a); } catch (e) {} drawArea(); };
+      $('area').appendChild(b);
+    });
+  }
+
+  // 押した記録はまずスマホに保存し（未送信）、電波があれば送る。電波がない間はたまっていき、戻ったら送る
+  let queue = [];
+  try { queue = JSON.parse(localStorage.getItem('queue')) || []; } catch (e) {}
+  function saveQueue() { try { localStorage.setItem('queue', JSON.stringify(queue)); } catch (e) {} }
+  const day = t => new Date(t).toDateString();
+
+  function render() {
+    const name = $('name').value, counts = Object.assign({}, sent);
+    queue.filter(q => q.name === name && day(q.ts) === day(Date.now())).forEach(q => counts[q.result] = (counts[q.result] || 0) + 1);
+    results.forEach(r => $('c-' + r).textContent = counts[r] || 0);
+    const face = FACE.reduce((s, r) => s + (counts[r] || 0), 0);
+    $('face').textContent = face;
+    $('knock').textContent = face + (counts['不在'] || 0) + (counts['インターホンNG'] || 0);
+    $('talk').textContent = (counts['トーク後NG'] || 0) + (counts['獲得'] || 0);
+    $('apo').textContent = counts['獲得'] || 0;
+    // 商材ごとの今日の獲得
+    const prod = Object.assign({}, sent.products);
+    queue.filter(q => q.name === name && q.product && day(q.ts) === day(Date.now())).forEach(q => prod[q.product] = (prod[q.product] || 0) + 1);
+    $('prod').textContent = products.map(p => p + ' ' + (prod[p] || 0)).join('・');
+    $('pending').style.display = queue.length ? 'block' : 'none';
+    $('pending').textContent = '未送信 ' + queue.length + '件（電波が戻ったら自動で送ります）';
+  }
+
+  // ひらがなはカタカナに直し、空白は取る
+  const kana = s => s.replace(/[\s　]/g, '').replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
+
+  // 「獲得」は申込日・商材・お客様名・セイメイ（カナ）を入れてから記録する（申込一覧に反映）
+  function openApp() {
+    if (!$('name').value) { $('msg').textContent = '名前を選んでください'; return; }
+    if (!area) { $('msg').textContent = 'エリア（大阪／名古屋）を選んでください'; return; }
+    if (busy) return;
+    $('appDate').value = new Date().toLocaleDateString('sv-SE'); // 今日（yyyy-mm-dd）
+    $('appArea').value = area;
+    ['product', 'customer', 'sei', 'mei'].forEach(id => $(id).value = ''); $('appErr').textContent = '';
+    $('app').classList.add('open');
+    $('customer').focus();
+  }
+  $('appCancel').onclick = () => $('app').classList.remove('open');
+  $('appOk').onclick = () => {
+    const customer = $('customer').value.trim(), appDate = $('appDate').value, product = $('product').value;
+    const sei = kana($('sei').value), mei = kana($('mei').value);
+    $('sei').value = sei; $('mei').value = mei;
+    if (!appDate) { $('appErr').textContent = '申込日を入れてください'; return; }
+    if (!product) { $('appErr').textContent = '商材を選んでください'; return; }
+    if (!customer) { $('appErr').textContent = 'お客様名を入れてください'; return; }
+    if (!sei || !mei) { $('appErr').textContent = 'セイ・メイ（カナ）を入れてください'; return; }
+    if (!/^[ァ-ヶー]+$/.test(sei + mei)) { $('appErr').textContent = 'セイ・メイはカタカナで入れてください'; return; }
+    if (!$('appArea').value) { $('appErr').textContent = 'エリアを選んでください'; return; }
+    $('app').classList.remove('open');
+    record('獲得', { appDate: appDate, customer: customer, sei: sei, mei: mei, product: product, area: $('appArea').value });
+  };
+
+  function record(result, extra) {
+    const name = $('name').value;
+    if (!name) { $('msg').textContent = '名前を選んでください'; return; }
+    if (!area) { $('msg').textContent = 'エリア（大阪／名古屋）を選んでください'; return; }
+    if (busy) return;
+    queue.push(Object.assign({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), name: name, result: result, ts: Date.now(), area: area }, extra));
+    saveQueue();
+    $('msg').textContent = '記録しました：' + result + (extra && extra.product ? '（' + extra.product + '）' : '');
+    render();
+    // 押し間違い防止に少しの間ほかを押せなくする
+    setBusy(true, '記録中…');
+    setTimeout(() => setBusy(false), 500);
+    flush();
+  }
+
+  // 未送信をまとめて送る。送れた分だけ消す（同じ記録は二重に入らない）
+  function flush() {
+    if (sending || !queue.length) return;
+    sending = true;
+    const batch = queue.slice(0, 50);
+    google.script.run
+      .withSuccessHandler(r => {
+        const ids = r.ids || r;
+        sending = false;
+        queue = queue.filter(q => !ids.includes(q.id));
+        saveQueue();
+        loadToday();
+        if (queue.length) flush();
+      })
+      .withFailureHandler(() => { sending = false; render(); })
+      .addRecords(batch);
+  }
+
+  function undo() {
+    const name = $('name').value;
+    if (!name) { $('msg').textContent = '名前を選んでください'; return; }
+    if (!confirm('直前の記録を取り消しますか？（獲得なら申込一覧の行も消えます）')) return;
+    const i = queue.map(q => q.name).lastIndexOf(name);
+    if (i >= 0) {
+      queue.splice(i, 1); saveQueue(); render();
+      $('msg').textContent = '取り消しました（未送信の分）';
+      return;
+    }
+    if (!navigator.onLine) { $('msg').textContent = '電波がない時は、送信済みの記録は取り消せません'; return; }
+    setBusy(true, '取り消し中…');
+    google.script.run
+      .withSuccessHandler(c => { setBusy(false); sent = c; render(); $('msg').textContent = '取り消しました'; })
+      .withFailureHandler(e => { setBusy(false); $('msg').textContent = 'エラー: ' + e.message; })
+      .undoLast(name);
+  }
+
+  // 少しの間、画面全体を覆ってほかのボタンや名前を触れないようにする
+  function setBusy(on, text) {
+    busy = on;
+    if (text) $('overlayText').textContent = text;
+    document.body.classList.toggle('busy', on);
+    document.querySelectorAll('button, select').forEach(el => el.disabled = on);
+  }
+
+  function loadToday() {
+    if (!$('name').value) return render();
+    google.script.run.withSuccessHandler(c => { sent = c; render(); }).withFailureHandler(render).getToday($('name').value);
+  }
+
+  google.script.run.withSuccessHandler(cfg => {
+    results = cfg.results; products = cfg.products || [];
+    areas = cfg.areas || [];
+    if (!areas.includes(area)) area = '';
+    areas.forEach(a => $('appArea').add(new Option(a, a)));
+    drawArea();
+    products.forEach(p => $('product').add(new Option(p, p)));
+    cfg.names.forEach(n => $('name').add(new Option(n, n)));
+    results.forEach(r => {
+      const b = document.createElement('button');
+      b.className = 'r'; b.style.background = COLORS[r] || '#333';
+      b.innerHTML = r + '<span id="c-' + r + '">0</span>';
+      b.onclick = () => r === '獲得' ? openApp() : record(r);
+      $('grid').appendChild(b);
+    });
+    try { const saved = localStorage.getItem('name'); if (saved) $('name').value = saved; } catch (e) {}
+    loadToday();
+    flush();
+  }).getConfig();
+
+  $('name').onchange = () => {
+    try { localStorage.setItem('name', $('name').value); } catch (e) {}
+    sent = {};
+    loadToday();
+  };
+  $('undo').onclick = undo;
+  window.addEventListener('online', flush);
+  setInterval(flush, 20000);
+  // 開きっぱなしでも、日付が変わったら今日の数字に切り替える（0時に0へ）
+  let shownDay = day(Date.now());
+  setInterval(() => {
+    if (day(Date.now()) === shownDay) return;
+    shownDay = day(Date.now()); sent = {}; render(); loadToday();
+  }, 30000);
+</script>
+</body>
+</html>

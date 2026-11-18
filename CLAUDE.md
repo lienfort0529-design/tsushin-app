@@ -15,6 +15,9 @@
 - API は `Code.gs` の `doPost`。チームの合言葉（スクリプト プロパティ `PASS`）が合うときだけ `API` の関数を呼ぶ。`ADMIN_FNS` の関数は、さらに管理者の合言葉（`ADMIN_PASS`）が要る
 - スクリプト プロパティ：`PASS`・`ADMIN_PASS`・`SHEET_ID`（本体）・`NAGOYA_BOOK_ID`（名古屋のファイル）。**値はコードにもリポジトリにも書かない**
 - 画面は1ページのアプリ（ビルドなし）。カウンター／顧客進捗／ランキング／個人成績・KPI／管理者
+- 「訪問」は別のページ `visit.html`（`visit.js`＝画面、`visit-sync.js`＝物件データと記録のやりとり、`visit.css`）。下のタブの「訪問」から移る。合言葉・名前（`hkPass`・`hkName`・`hkAdmin`）は同じものを使う。`visit-sync.js` の `API_URL` は `app.js` と同じにする
+  - スマホに覚えるもの：`hkVisitState`（全員分の記録の写し）・`hkVisitQ`（まだ送っていない分）・`hkV_〜`（表示の設定）、IndexedDB `hkVisit`（物件データ）
+  - `visit.js` はモック（au光訪問アプリ）から移したもの。保存は `save()` にまとまっていて、`visit-sync.js` が前との違いを `visitPush` で送る
 - `localStorage` のキーは頭に `hk` を付ける（同じ github.io に住宅設備アプリがあり、ぶつかるため）
 - 電波がないときは記録をスマホにため（`hkQueue`）、つながったら送る。二重に入らないよう記録ごとに ID を付ける
 - エリアは 大阪／名古屋（`Code.gs` の `AREAS`）。名古屋の顧客進捗は別ファイル（`EXTERNAL_AREAS`、`appSheet_` で読み書き）

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>訪問｜通信インフラ</title>
+<meta name="theme-color" content="#0B1E30">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Roboto+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="visit.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+</head>
+<body>
+<header><div class="hd">
+  <a class="vback" href="./">‹ 通信インフラ（カウンター）へ</a>
+  <div class="role" id="role"></div>
+  <div class="who-bar" id="whobar"></div>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-v="list" aria-selected="true">物件</button>
+    <button class="tab" role="tab" data-v="news" aria-selected="false">お知らせ<span class="badge" id="nb"></span></button>
+    <button class="tab" role="tab" data-v="admin" aria-selected="false" hidden>管理者</button>
+  </div>
+</div></header>
+<main class="wrap" id="app"><div id="vload">読み込んでいます…</div></main>
+<div id="layer"></div>
+<script src="visit-sync.js"></script>
+</body>
+</html>

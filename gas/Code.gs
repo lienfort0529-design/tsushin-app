@@ -752,7 +752,7 @@ const API = {
   custList: () => custList(), custUpdate: u => custUpdate(u), stats: () => stats(), statsRange: (st, en) => statsRange(st, en), setDayGoal: g => setDayGoal(g),
   adminCheck: () => true, memberList: () => memberList(), memberSave: u => memberSave(u), goalsGet: () => goalsGet(), goalsSave: g => goalsSave(g), todayBoard: () => todayBoard(),
   // 訪問（Visit.gs）
-  visitPull: () => visitPull(), visitPush: ops => visitPush(ops),
+  visitPull: () => visitPull(), visitPush: ops => visitPush(ops), visitData: have => visitData(have),
 };
 // 管理者だけが使えるもの（管理者の合言葉＝スクリプト プロパティ ADMIN_PASS が合うとき）
 const ADMIN_FNS = ['adminCheck', 'custUpdate', 'memberList', 'memberSave', 'goalsGet', 'goalsSave', 'todayBoard'];

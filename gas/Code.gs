@@ -1,7 +1,8 @@
 // 光回線 訪問販売 カウンター・集計
 // スプレッドシートの「拡張機能 → Apps Script」に貼り、setup を1回実行する
 const TZ = 'Asia/Tokyo';
-const RESULTS = ['不在', 'インターホンNG', 'フロントNG', 'トーク後NG', '獲得', '対象外'];
+// 検討（2026-11-18〜）：話は聞いてもらえて、返事待ち。提案に数える（提案＝トーク後NG＋検討＋獲得）
+const RESULTS = ['不在', 'インターホンNG', 'フロントNG', 'トーク後NG', '検討', '獲得', '対象外'];
 const PRODUCTS = ['au光', 'au光＋', 'コミュファ光']; // 最初に「商材」シートに入れる分。増やすときはシートに書き足す
 const MEMBER_SHEET = 'メンバー', LOG_SHEET = '活動ログ', APP_SHEET = '顧客進捗', STATS_SHEET = '個人成績', RANK_SHEET = 'ランキング', PRODUCT_SHEET = '商材';
 const GOAL_SHEET = '目標', KPI_ALL_SHEET = 'KPI一覧', KPI_ONE_SHEET = 'KPI個人', DAY_GOAL_SHEET = '日の目標';
@@ -174,6 +175,23 @@ function upgradeArea() {
   Logger.log(done.join(' / '));
 }
 
+// 「検討」を入れる前に作ったスプレッドシート用（1回だけ実行。実行する日は相談して決める）：
+// 個人成績（トーク後NGと獲得の間に「検討」の列）・ランキング・KPI一覧・KPI個人を作り直す（活動ログ・顧客進捗の記録は消えない）
+function upgradeKentou() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), st = ss.getSheetByName(STATS_SHEET);
+  if (st && st.getRange('J5').getValue() === '検討') return Logger.log('作り済み（変更なし）');
+  const period = st ? st.getRange('B1').getValue() : '';
+  [STATS_SHEET, RANK_SHEET, KPI_ALL_SHEET, KPI_ONE_SHEET].forEach(n => { const sh = ss.getSheetByName(n); if (sh) ss.deleteSheet(sh); });
+  setupStats_(ss.insertSheet(STATS_SHEET));
+  if (period) ss.getSheetByName(STATS_SHEET).getRange('B1').setValue(period);
+  setupRanking_(ss.insertSheet(RANK_SHEET));
+  setupKpiAll_(ss.insertSheet(KPI_ALL_SHEET));
+  setupKpiOne_(ss.insertSheet(KPI_ONE_SHEET));
+  orderSheets_(ss);
+  clearStats_();
+  Logger.log('個人成績に「検討」の列 / 提案＝トーク後NG＋検討＋獲得 / ランキング・KPIを作り直し');
+}
+
 // 名古屋の顧客進捗を別のスプレッドシートに移す（1回だけ実行。もう一度実行すると商材の選択肢だけ新しくする）：
 // 「通信インフラ事業（名古屋）」を作り（ID をスクリプト プロパティ NAGOYA_BOOK_ID に覚える）、このファイルの「顧客進捗（名古屋）」の行を移して、このファイルからは消す。
 // 集計のシートを作り直す（名古屋の開通・前確NGはこのファイルでは数えない）
@@ -308,12 +326,12 @@ function setupStats_(sh) {
   sh.getRange('E1').setValue('← 黄色のセルで期間・エリアを切り替え（週は月曜から、年間は1月から）');
   AREA_ = '$D$1';
 
-  const head = ['名前', '訪問', '不在', 'インターホンNG', '対面', 'フロントNG', '対象外', '提案', 'トーク後NG', '獲得', '前確NG', '開通', '対面率', '提案率', '成約率', '獲得率'];
+  const head = ['名前', '訪問', '不在', 'インターホンNG', '対面', 'フロントNG', '対象外', '提案', 'トーク後NG', '検討', '獲得', '前確NG', '開通', '対面率', '提案率', '成約率', '獲得率'];
   sh.getRange(5, 1, 1, head.length).setValues([head]).setFontWeight('bold').setBackground('#e8eaed');
   const last = 6 + MAX_MEMBERS;
   const sum = c => '=SUM(' + c + '7:' + c + last + ')';
-  sh.getRange(6, 1, 1, head.length).setFormulas([['チーム合計', sum('B'), sum('C'), sum('D'), sum('E'), sum('F'), sum('G'), sum('H'), sum('I'), sum('J'), sum('K'), sum('L'),
-    rate_('E', 'B', 6), rate_('H', 'E', 6), rate_('J', 'H', 6), rate_('J', 'B', 6)]]).setFontWeight('bold').setBackground('#f3f6fc');
+  sh.getRange(6, 1, 1, head.length).setFormulas([['チーム合計', sum('B'), sum('C'), sum('D'), sum('E'), sum('F'), sum('G'), sum('H'), sum('I'), sum('J'), sum('K'), sum('L'), sum('M'),
+    rate_('E', 'B', 6), rate_('H', 'E', 6), rate_('K', 'H', 6), rate_('K', 'B', 6)]]).setFontWeight('bold').setBackground('#f3f6fc');
   sh.getRange('A6').setValue('チーム合計');
 
   sh.getRange('A7').setFormula('=IFERROR(FILTER(' + M_ + '!A2:A,' + M_ + '!A2:A<>"",' + M_ + '!B2:B=TRUE),"")');
@@ -327,15 +345,15 @@ function setupStats_(sh) {
       cnt('不在'), cnt('インターホンNG'),
       blank('F' + r + '+G' + r + '+H' + r),          // 対面＝フロントNG＋対象外＋提案
       cnt('フロントNG'), cnt('対象外'),
-      blank('I' + r + '+J' + r),                     // 提案＝トーク後NG＋獲得
-      cnt('トーク後NG'), cnt('獲得'),
+      blank('I' + r + '+J' + r + '+K' + r),          // 提案＝トーク後NG＋検討＋獲得
+      cnt('トーク後NG'), cnt('検討'), cnt('獲得'),
       blank(ngCount_('$A' + r, '$B$2', '$B$3')),
       blank(opened_('$A' + r, '$B$2', '$B$3')),
-      rate_('E', 'B', r), rate_('H', 'E', r), rate_('J', 'H', r), rate_('J', 'B', r),
+      rate_('E', 'B', r), rate_('H', 'E', r), rate_('K', 'H', r), rate_('K', 'B', r),
     ]);
   }
-  sh.getRange(7, 2, MAX_MEMBERS, 15).setFormulas(rows);
-  sh.getRange(6, 13, MAX_MEMBERS + 1, 4).setNumberFormat('0.0%');
+  sh.getRange(7, 2, MAX_MEMBERS, 16).setFormulas(rows);
+  sh.getRange(6, 14, MAX_MEMBERS + 1, 4).setNumberFormat('0.0%');
 
   // 商材別：商材シートの並びで列が自動で増える
   const names = '$A$7:$A$' + last, products = 'TOCOL(' + P_ + '!$A$2:$A,1)';
@@ -448,7 +466,7 @@ function setupKpiAll_(sh) {
     const S_ = 'S' + r, T_ = 'T' + r;
     row.push('=IF(N(B' + r + ')=0,"",' + S_ + '/B' + r + ')', '=IF(N(' + S_ + ')=0,"",' + T_ + '/' + S_ + ')', '=IF(N(' + T_ + ')=0,"",F' + r + '/' + T_ + ')', '=IF(N(B' + r + ')=0,"",F' + r + '/B' + r + ')', '',
       r === 6 ? '=SUM(S7:S' + last + ')' : blank('B' + r + '-' + logCount_(name, '不在', S, E) + '-' + logCount_(name, 'インターホンNG', S, E)),
-      r === 6 ? '=SUM(T7:T' + last + ')' : blank('F' + r + '+' + logCount_(name, 'トーク後NG', S, E)));
+      r === 6 ? '=SUM(T7:T' + last + ')' : blank('F' + r + '+' + logCount_(name, 'トーク後NG', S, E) + '+' + logCount_(name, '検討', S, E)));
     rows.push(row);
   }
   sh.getRange(6, 2, rows.length, 19).setFormulas(rows);
@@ -497,7 +515,7 @@ function setupKpiOne_(sh) {
   sh.getRange('A11').setValue('率（本人・チーム平均・目標）').setFontWeight('bold').setFontSize(13);
   head('A12:E12').setValues([['項目', '本人', 'チーム平均', '目標', '判定']]);
   const v = n => logCount_(n, null, S, E), face = n => '(' + v(n) + '-' + logCount_(n, '不在', S, E) + '-' + logCount_(n, 'インターホンNG', S, E) + ')';
-  const talk = n => '(' + logCount_(n, 'トーク後NG', S, E) + '+' + logCount_(n, '獲得', S, E) + ')', won = n => logCount_(n, '獲得', S, E);
+  const talk = n => '(' + logCount_(n, 'トーク後NG', S, E) + '+' + logCount_(n, '検討', S, E) + '+' + logCount_(n, '獲得', S, E) + ')', won = n => logCount_(n, '獲得', S, E);
   const ratio = (a, b) => '=IFERROR(' + a + '/' + b + ',"")';
   [['対面率', face, v, 'B6'], ['提案率', talk, face, 'B7'], ['成約率', won, talk, 'B8'], ['獲得率', won, v, null]].forEach(([l, a, b, g], i) => {
     const r = 13 + i;
@@ -517,7 +535,7 @@ function setupKpiOne_(sh) {
     const r = 20 + i;
     sh.getRange(r, 1, 1, 3).setFormulas([[txt_(res), '=' + logCount_(N, res, S, E), '=IFERROR(B' + r + '/B7,"")']]);
   });
-  sh.getRange('C20:C25').setNumberFormat('0.0%');
+  sh.getRange(20, 3, RESULTS.length, 1).setNumberFormat('0.0%');
   sh.getRange('E18').setValue('商材別').setFontWeight('bold').setFontSize(13);
   head('E19:G19').setValues([['商材', '獲得', '開通']]);
   sh.getRange('E20').setFormula('=IFERROR(' + productsF_() + ',"")');

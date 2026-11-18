@@ -70,9 +70,9 @@
   <div id="overlay"><div class="spinner"></div><span id="overlayText">記録中…</span></div>
 
 <script>
-  const COLORS = { '不在':'#8a8f98', 'インターホンNG':'#2980b9', 'フロントNG':'#2980b9', 'トーク後NG':'#2980b9',
+  const COLORS = { '不在':'#8a8f98', 'インターホンNG':'#2980b9', 'フロントNG':'#2980b9', 'トーク後NG':'#2980b9', '検討':'#b8860b',
                    '獲得':'#d9534f', '対象外':'#555' };
-  const FACE = ['フロントNG','対象外','トーク後NG','獲得'];
+  const FACE = ['フロントNG','対象外','トーク後NG','検討','獲得'];
   const $ = id => document.getElementById(id);
   let results = [], products = [], busy = false, sending = false, sent = {};
   // エリア（大阪／名古屋）：上で選んだエリアで記録する。前回選んだものを覚える
@@ -101,7 +101,7 @@
     const face = FACE.reduce((s, r) => s + (counts[r] || 0), 0);
     $('face').textContent = face;
     $('knock').textContent = face + (counts['不在'] || 0) + (counts['インターホンNG'] || 0);
-    $('talk').textContent = (counts['トーク後NG'] || 0) + (counts['獲得'] || 0);
+    $('talk').textContent = (counts['トーク後NG'] || 0) + (counts['検討'] || 0) + (counts['獲得'] || 0);
     $('apo').textContent = counts['獲得'] || 0;
     // 商材ごとの今日の獲得
     const prod = Object.assign({}, sent.products);

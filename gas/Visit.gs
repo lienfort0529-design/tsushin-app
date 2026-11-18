@@ -135,3 +135,19 @@ function visitDanger_(ss, key, on, name, ts, memo) {
   if (on && i < 0) sh.getRange(sh.getLastRow() + 1, 1, 1, 4).setValues([[key, name, new Date(ts), memo]]);
   if (!on && i >= 0) sh.deleteRow(i + 2);
 }
+
+// ===== 物件データ（訪問の物件リスト）=====
+// 物件データは公開リポジトリに置かず、スプレッドシートの「物件データ」シートに入れる（作り方は Visit.gs の外、作者の手元）。
+// シート：A1＝版、A2から下＝「x」＋ 圧縮した JSON（gzip を base64 にしたもの）を分けたもの。先頭の x は外してつなぐ
+// アプリは持っている版を送る。同じ版なら中身は返さない（スマホに保存した分をそのまま使う）
+const VISIT_DATA_SHEET = '物件データ';
+
+// 返すもの：{ver: 版, same: true}（同じ版のとき）／{ver: 版, gz: 圧縮したデータ}／{ver: ''}（まだ入っていない）
+function visitData(have) {
+  const sh = ss_().getSheetByName(VISIT_DATA_SHEET), n = sh ? sh.getLastRow() : 0;
+  if (n < 2) return { ver: '' };
+  const ver = String(sh.getRange(1, 1).getValue()).trim();
+  if (have && String(have) === ver) return { ver: ver, same: true };
+  const gz = sh.getRange(2, 1, n - 1, 1).getValues().map(v => String(v[0]).trim().replace(/^x/, '')).join('');
+  return { ver: ver, gz: gz };
+}

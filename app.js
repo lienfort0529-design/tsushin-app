@@ -81,15 +81,19 @@ const ICON = {
   cust: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
   rank: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></svg>',
   admin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>',
+  visit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5l8-3 8 3v16M9 21v-4h6v4M8 8h2M14 8h2M8 12h2M14 12h2"/></svg>',
   kpi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
 };
 const VIEWS = [['counter', 'カウンター'], ['cust', '顧客進捗'], ['rank', 'ランキング'], ['kpi', '個人成績・KPI'], ['admin', '管理者']];
 let view = store.get(KEY.view, 'counter');
 
+// 「訪問」は別のページ（visit.html）。合言葉と名前はこの画面と同じものを使う
+const VISIT_BTN = '<button data-go="visit.html">' + ICON.visit + '<span>訪問</span></button>';
 function buildNav() {
   const html = VIEWS.map(([k, t]) => '<button data-v="' + k + '">' + ICON[k] + '<span>' + t + '</span></button>').join('');
-  $('sideNav').innerHTML = html;
-  $('tabs').innerHTML = VIEWS.map(([k, t]) => '<button data-v="' + k + '">' + ICON[k] + '<span>' + (k === 'kpi' ? 'KPI' : t) + '</span></button>').join('');
+  $('sideNav').innerHTML = html + VISIT_BTN;
+  $('tabs').innerHTML = VIEWS.map(([k, t]) => '<button data-v="' + k + '">' + ICON[k] + '<span>' + (k === 'kpi' ? 'KPI' : t) + '</span></button>').join('') + VISIT_BTN;
+  document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { location.href = b.dataset.go; });
   document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => go(b.dataset.v));
 }
 

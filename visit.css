@@ -339,3 +339,5 @@ header{background:var(--ink);color:#fff;border:0;box-shadow:inset 0 -3px 0 var(-
 .tsel{display:flex;gap:6px;align-items:stretch;margin-top:6px}.tsel select{flex:1;min-width:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;font-size:16px;font-weight:700}
 .tnav{flex:none;width:44px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--accent);font-size:22px;font-weight:700;cursor:pointer}.tnav:disabled{opacity:.35}
 .rmore{margin-top:10px;border-top:1px solid var(--line);padding-top:6px}.rmore>summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--sub);padding:6px 0}.rmore .dgt{margin-left:6px;color:var(--r-ke-t,#c92a2a)}
+.hrow{display:flex;align-items:baseline;gap:8px;margin-top:4px;font-weight:700}.hrow span{flex:1;min-width:0}
+.edit2{flex:none;border:1px solid var(--accent);background:var(--card);color:var(--accent);border-radius:8px;padding:3px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}

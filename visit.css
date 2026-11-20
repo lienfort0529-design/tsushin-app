@@ -276,3 +276,6 @@ header{background:var(--ink);color:#fff;border:0;box-shadow:inset 0 -3px 0 var(-
 .tag.tdy{background:#efe9ff;color:#5f3dc4}.note.tdyn{border-color:#7048e8}
 .nums.score{color:var(--fg)}
 .cell,.room{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.adv .chips{flex-wrap:wrap;overflow:visible;margin-inline:0;padding-inline:0}
+.rrow .rb em.rt{font-style:normal;color:var(--accent);font-weight:700}
+.rrow .rb em.rt.past{color:var(--sub)}

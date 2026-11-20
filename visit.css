@@ -254,3 +254,6 @@ header{background:var(--ink);color:#fff;border:0;box-shadow:inset 0 -3px 0 var(-
 .adv .chips{margin-top:6px}
 .advf{display:flex;gap:8px;align-items:center;margin-top:12px}.advf .save{margin:0;flex:1}
 .advclr{border:0;background:none;color:var(--sub);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;padding:8px 4px}
+.srow{display:flex;gap:8px;align-items:stretch;margin-top:14px}.srow .search{margin-top:0;flex:1;min-width:0}
+.srow .advbtn{width:auto;margin:0;flex:none;padding:0 14px;gap:6px}
+.srow .advbtn[aria-expanded="true"]{border-color:var(--accent);color:var(--accent)}

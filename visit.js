@@ -24,7 +24,7 @@ const VTAG=b=>"";
 const KIND={d:'<span class="tag as">Dropboxにあり</span>',n:"",p:'<span class="tag part">一部の棟だけDropboxに</span>',c:'<span class="tag chk">Dropboxと同じか要確認</span>'};
 // 保存：記録(H)と部屋の形(L)。モックなので端末のlocalStorage。
 function load(k,d){if(VS.has(k))return VS.get(k);try{return JSON.parse(localStorage.getItem("hkV_"+k))||d}catch(e){return d}}
-function save(k,v){if(VS.has(k))return VS.save(k,v);try{localStorage.setItem("hkV_"+k,JSON.stringify(v))}catch(e){}}
+function save(k,v){if(k==="au_route"&&typeof shareRoute==="function")shareRoute(v);if(VS.has(k))return VS.save(k,v);try{localStorage.setItem("hkV_"+k,JSON.stringify(v))}catch(e){}}
 const MEMOF=[["madori","間取り"],["menseki","広さ（㎡）"],["yachin","家賃（万円）"],["kosu","戸数","number"],["kai","階建","number"],["shubetsu","種別"],["jp","JP"],["port","空ポ/全ポ"],["shunko","竣工（年）","year"],["lock","オートロック"],["kanri","管理会社"],["type","住居タイプ分賃"],["biko","備考","wide"]];
 const MM=load("au_memo",{});
 const H=load("au_hist",{}), LAY=load("au_layout",{}), PUB=load("au_pub",{});
@@ -52,6 +52,7 @@ function bScore(b){const hs=allRooms(b).flatMap(k=>hist(k));const v=hs.length,t=
 // 今日この物件を回った人（自分以外も）
 function todayWho(b){const m={};allRooms(b).forEach(k=>hist(k).forEach(h=>{if(isToday(h.t))m[h.w]=(m[h.w]||0)+1}));return m}
 // ===== 今日のルート（このスマホに、その日だけ保存）=====
+setTimeout(()=>{if(ROUTE)shareRoute(ROUTE)},0);
 let ROUTE=(()=>{const r=load("au_route",null);return r&&r.d===new Date().toDateString()?r:null})();
 // 会えそうな時間帯：その物件で前に話せた時間帯がいちばん確か。無ければ間取りから（単身＝夜、ファミリー＝昼〜夕方）
 function bestBand(b){const c={朝:0,昼:0,夜:0};allRooms(b).forEach(k=>hist(k).forEach(h=>{if(TALK.includes(h.s)&&h.t)c[band3(h.t)]++}));const top=Object.keys(c).sort((x,y)=>c[y]-c[x])[0];if(c[top])return {b:top,why:"前に"+top+"に話せた"};
@@ -64,12 +65,28 @@ function makeRoute(pos,fav){if(fav){const cand=myFavIds().map(id=>BY[+id]).filte
  const cand=filtered().filter(b=>b.lat!=null);if(!cand.length){toast("いまの条件に地図に出せる物件がありません");return}
  const out=[],used=new Set();let cur=pos;for(let i=0;i<8;i++){let m=null,d=1e9;cand.forEach(b=>{if(used.has(b.id))return;const x=kmAB(cur,[b.lat,b.lng]);if(x<d){d=x;m=b}});if(!m)break;used.add(m.id);out.push(m.id);cur=[m.lat,m.lng]}
  ROUTE={d:new Date().toDateString(),ids:out,from:pos};save("au_route",ROUTE);st.lim=50;render();toast("いまの条件で、近い順に"+out.length+"件つなぎました")}
+// 地図や物件ページで「ルートに入れる」を押していくと、そのたびに回る順番を組み直す（会えそうな時間帯→近い順、最大10件）
+// 今日のルートは全員で共有（RTS = {名前: {d 日付, ids}}）→ ほかの人のルートと被っていたら知らせる
+const RTS=load("au_routes",{});
+function shareRoute(r){if(!ME)return;const cur=RTS[ME];const nx=r&&r.ids&&r.ids.length?{d:r.d,ids:r.ids.slice()}:null;if(JSON.stringify(cur||null)===JSON.stringify(nx))return;if(nx)RTS[ME]=nx;else delete RTS[ME];save("au_routes",RTS)}
+const today0=()=>new Date().toDateString();
+// この物件を今日のルートに入れているほかの人
+const routeWho=id=>Object.keys(RTS).filter(n=>n!==ME&&RTS[n]&&RTS[n].d===today0()&&(RTS[n].ids||[]).includes(+id));
+// 被りの一言（ほかの人のルート＋今日すでに回った人）
+function clashTxt(b){const r=routeWho(b.id),w=Object.keys(todayWho(b)).filter(n=>n!==ME);const a=[];if(r.length)a.push(r.join("・")+"さんのルートと被っています");if(w.length)a.push("今日 "+w.join("・")+"さんが回りました");return a.join("／")}
+const inRoute=id=>!!(ROUTE&&ROUTE.ids.includes(+id));
+function routeToggle(id){id=+id;const b=BY[id];if(!b||b.lat==null)return toast("地図の場所が分からない物件は入れられません");
+ let ids=ROUTE?ROUTE.ids.slice():[];if(ids.includes(id))ids=ids.filter(x=>x!==id);else{if(ids.length>=10)return toast("ルートは10件までです");ids.push(id)}
+ if(!ids.length){ROUTE=null;save("au_route",null);return toast("ルートを空にしました")}
+ const from=ROUTE&&ROUTE.from||st.pos||[BY[ids[0]].lat,BY[ids[0]].lng];
+ ROUTE={d:new Date().toDateString(),ids:orderByTime(ids.map(x=>BY[x]).filter(Boolean),from),from,pick:true};save("au_route",ROUTE);
+ const c=inRoute(id)&&clashTxt(b);toast(inRoute(id)?(c?"⚠ "+c:"ルートに入れました（"+ROUTE.ids.length+"件・順番を組み直しました）"):"ルートから外しました")}
 function routeBox(){if(!ROUTE||!ROUTE.ids.length)return "";const bs=ROUTE.ids.map(id=>BY[id]).filter(Boolean);let prev=ROUTE.from;
  const rows=bs.map((b,i)=>{const d=b.lat!=null&&prev?kmAB(prev,[b.lat,b.lng]):null;if(b.lat!=null)prev=[b.lat,b.lng];const done=Object.keys(todayWho(b)).includes(ME);
-  return `<button class="rrow ${done?"done":""}" data-b="${b.id}"><span class="rn">${done?"✓":i+1}</span><span class="rb"><b>${esc(b.name)}</b><small>${(()=>{const t=bestBand(b);if(!t.b)return "";const BO=["朝","昼","夜"],past=BO.indexOf(t.b)<BO.indexOf(band3(Date.now()));return `<em class="rt ${past?"past":""}">${past?"今日はもう時間外・"+t.b+"がおすすめ":t.b+"がおすすめ"}（${t.why}）</em> `})()}${esc(b.addr)}</small></span><span class="rd">${d!=null?dtxt(d):""}</span></button>`}).join("");
+  return `<button class="rrow ${done?"done":""}" data-b="${b.id}"><span class="rn">${done?"✓":i+1}</span><span class="rb"><b>${esc(b.name)}</b>${(()=>{const c=clashTxt(b);return c?`<small class="clash">⚠ ${esc(c)}</small>`:""})()}<small>${(()=>{const t=bestBand(b);if(!t.b)return "";const BO=["朝","昼","夜"],past=BO.indexOf(t.b)<BO.indexOf(band3(Date.now()));return `<em class="rt ${past?"past":""}">${past?"今日はもう時間外・"+t.b+"がおすすめ":t.b+"がおすすめ"}（${t.why}）</em> `})()}${esc(b.addr)}</small></span><span class="rd">${d!=null?dtxt(d):""}</span></button>`}).join("");
  const wp=bs.filter(b=>b.lat!=null);const url=wp.length?`https://www.google.com/maps/dir/?api=1&origin=${ROUTE.from[0]},${ROUTE.from[1]}&destination=${wp[wp.length-1].lat},${wp[wp.length-1].lng}${wp.length>1?"&waypoints="+wp.slice(0,-1).map(b=>b.lat+","+b.lng).join("|"):""}&travelmode=walking`:"";
  const nx=bs.find(b=>!Object.keys(todayWho(b)).includes(ME));
- return `<details class="route" ${st.rOpen!==false?"open":""} id="rdet"><summary class="rh"><b>🗺 今日のルート（${ROUTE.fav?"★":""}${bs.length}件）</b>${nx?`<span class="rnext">次：${esc(nx.name)}</span>`:`<span class="rnext">全部回りました</span>`}<button id="routeClr">消す</button></summary>${rows}${url?`<a class="rgo" href="${url}" data-gm="${esc(wp.map(b=>b.lat+","+b.lng).join("|"))}" target="_blank" rel="noopener">Googleマップアプリで順番に案内（徒歩）</a>`:""}<button class="rbtn3" id="routeMk">作り直す</button></details>`}
+ return `<details class="route" ${st.rOpen!==false?"open":""} id="rdet"><summary class="rh"><b>🗺 今日のルート（${ROUTE.fav?"★":ROUTE.pick?"選んだ":""}${bs.length}件）</b>${nx?`<span class="rnext">次：${esc(nx.name)}</span>`:`<span class="rnext">全部回りました</span>`}<button id="routeClr">消す</button></summary>${rows}${url?`<a class="rgo" href="${url}" data-gm="${esc(wp.map(b=>b.lat+","+b.lng).join("|"))}" target="_blank" rel="noopener">Googleマップアプリで順番に案内（徒歩）</a>`:""}<button class="rbtn3" id="routeMk">作り直す</button></details>`}
 function routeAsk(){const n=myFavIds().length,m=filtered().filter(b=>b.lat!=null).length;
  $("#layer").innerHTML=`<div class="shade" id="shade"></div><div class="sheet" role="dialog" aria-label="今日のルート"><div class="in"><div class="grab"></div><b style="font-size:17px">🗺 どの物件でルートを作る？</b>
  <button class="save" id="rtFav" ${n?"":"disabled"} style="margin-top:12px">★ 気になる（${n}件）で作る</button><div class="small" style="margin:4px 2px 0">会えそうな時間帯（前に話せた時間・単身は夜／ファミリーは昼）ごとに分けて、近い順につなぎます。</div>
@@ -121,11 +138,13 @@ function drawMap(){const el=$("#map");if(!el||!window.L)return;if(MAP){MAP.remov
  const a=filtered().filter(b=>b.lat!=null),pts=[];
  a.forEach(b=>{const col=b.kind==="c"?"#c92a2a":b.kind==="p"?"#c99a00":touched(b)?"#1f4e79":"#e8590c";
   L.circleMarker([b.lat,b.lng],{radius:Math.min(12,5+Math.sqrt(b.nt)),color:"#fff",weight:1.5,fillColor:col,fillOpacity:.9}).addTo(MAP)
-   .bindPopup(`<b>${esc(b.name)}</b><br>${esc(b.addr)}${b.nt>1?"・"+b.nt+"棟":""}${roomTxt(b)&&(ROLE==="own"||isPub(b))?"<br>🏠 "+esc(roomTxt(b)):""}${st.pos?"<br>現在地から "+dtxt(km(b)):""}<button class="pop" data-b="${b.id}">この物件を開く</button><a class="gm" href="https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}" target="_blank" rel="noopener">Googleマップで道案内</a>`);pts.push([b.lat,b.lng])});
+   .bindPopup(`<b>${esc(b.name)}</b><br>${esc(b.addr)}${b.nt>1?"・"+b.nt+"棟":""}${roomTxt(b)&&(ROLE==="own"||isPub(b))?"<br>🏠 "+esc(roomTxt(b)):""}${st.pos?"<br>現在地から "+dtxt(km(b)):""}<button class="pop" data-b="${b.id}">この物件を開く</button>${(()=>{const c=clashTxt(b);return c?`<div class="clash" style="margin-top:6px">⚠ ${esc(c)}</div>`:""})()}<button class="pop rt ${inRoute(b.id)?"on":""}" data-rt="${b.id}">${inRoute(b.id)?"✓ ルートに入っています（外す）":"＋ 今日のルートに入れる"}</button><a class="gm" href="https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}" target="_blank" rel="noopener">Googleマップで道案内</a>`);pts.push([b.lat,b.lng])});
  a.forEach(b=>{if(Object.keys(todayWho(b)).length)L.circleMarker([b.lat,b.lng],{radius:Math.min(12,5+Math.sqrt(b.nt))+5,color:"#7048e8",weight:3,fill:false,interactive:false}).addTo(MAP)});
  if(ROUTE&&ROUTE.ids.length){const rp=[ROUTE.from].concat(ROUTE.ids.map(id=>BY[id]).filter(b=>b&&b.lat!=null).map(b=>[b.lat,b.lng]));L.polyline(rp,{color:"#e8590c",weight:3,dashArray:"6 6"}).addTo(MAP);
   ROUTE.ids.map(id=>BY[id]).filter(b=>b&&b.lat!=null).forEach((b,i)=>L.marker([b.lat,b.lng],{icon:L.divIcon({className:"rnum",html:String(i+1),iconSize:[22,22]})}).addTo(MAP).on("click",()=>{st.b=b.id;st.t=0;render()}))}
- if(st.pos){L.circleMarker(st.pos,{radius:8,color:"#fff",weight:3,fillColor:"#2f9e44",fillOpacity:1}).addTo(MAP);MAP.setView(st.pos,15)}
+ const mv=st.mapView;st.mapView=null;
+ if(st.pos){L.circleMarker(st.pos,{radius:8,color:"#fff",weight:3,fillColor:"#2f9e44",fillOpacity:1}).addTo(MAP);if(!mv)MAP.setView(st.pos,15)}
+ if(mv){MAP.setView(mv.c,mv.z);return}
  else if(pts.length)MAP.fitBounds(pts,{padding:[20,20],maxZoom:16});else MAP.setView([34.69,135.5],10)}
 function rowsFor(b){const m=memOf(b),ks=allRooms(b),c=stats(ks);const hs=ks.flatMap(k=>hist(k));const lastD=hs.map(h=>h.d).sort().pop()||"";const g=age(m);
  return {"市区町村":b.city,"物件名":b.name,"住所":b.addr,"棟数":b.nt,"Dropbox":b.kind==="d"?"あり":b.kind==="p"?"一部だけ":b.kind==="c"?"現場で確認":"無い","間取り":m.madori||"","広さ㎡":m.menseki||"","家賃万円":m.yachin||"","竣工":m.shunko||"","築年数":g!=null?g:"","オートロック":m.lock||"","管理会社":m.kanri||"","戸数":m.kosu||"","作成部屋数":ks.length,"訪問済み部屋":ks.filter(k=>hist(k).length).length,"検討":c.kn,"契約":c.ok,"最終訪問":lastD,"メモ":m.free||"","物件番号":b.no}}
@@ -276,9 +295,10 @@ function detail(){const b=BY[st.b];if(RECENT[0]!==b.id){const i=RECENT.indexOf(b
  const touHTML=b.tou.length>1?`<div class="small" style="margin-top:10px">棟を選ぶ（${b.tou.length}棟）</div><div class="tous">${b.tou.map((t,i)=>`<button data-t="${i}" aria-pressed="${i===st.t}" class="${LAY[tk(b,i)]?"done":""}">${esc(t)}</button>`).join("")}</div>`:"";
  return `<button class="back" id="back"><span class="ar">‹</span><span>${backLabel()}</span><span class="bn">${esc(b.name)}</span></button><div class="dt">
  <div class="top" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">${isHot(b)?'<span class="tag hot">🔥未訪問</span>':""}${KIND[b.kind]}${VTAG(b)}</div>
- <div class="h2row"><h2>${esc(b.name)}</h2><button class="fav" id="favb" aria-pressed="${isFav(b.id)}">${isFav(b.id)?"★ 気になる":"☆ 気になる"}${favN(b.id)?`<small>${favN(b.id)}人</small>`:""}</button></div><div class="tyrow">${(()=>{const t=typeOf(b);return t?`auひかり <b class="ty ty-${t}">${TYPE_TXT[t]}</b>`:`auひかり タイプ：<b>現場で確認</b>（分かったら自社メモの「種別」に V か G）`})()}</div><div class="addr">${esc(b.addr)}${b.nt>1?`・${b.nt}棟`:""}${(()=>{const z=sizeOf(b);return z.kai?`・${z.kai}階建${z.kosu?"・"+z.kosu+"戸":""}${z.per?`（1フロア約${z.per}戸）`:""}`:""})()}</div>${roomTxt(b)&&(ROLE==="own"||isPub(b))?`<div style="font-weight:700;margin-top:4px">🏠 ${esc(roomTxt(b))}</div>`:""}
+ <div class="h2row"><h2>${esc(b.name)}</h2><button class="fav rtb ${inRoute(b.id)?"on":""}" data-rt="${b.id}">${inRoute(b.id)?"✓ ルート":"＋ ルート"}</button><button class="fav" id="favb" aria-pressed="${isFav(b.id)}">${isFav(b.id)?"★ 気になる":"☆ 気になる"}${favN(b.id)?`<small>${favN(b.id)}人</small>`:""}</button></div><div class="tyrow">${(()=>{const t=typeOf(b);return t?`auひかり <b class="ty ty-${t}">${TYPE_TXT[t]}</b>`:`auひかり タイプ：<b>現場で確認</b>（分かったら自社メモの「種別」に V か G）`})()}</div><div class="addr">${esc(b.addr)}${b.nt>1?`・${b.nt}棟`:""}${(()=>{const z=sizeOf(b);return z.kai?`・${z.kai}階建${z.kosu?"・"+z.kosu+"戸":""}${z.per?`（1フロア約${z.per}戸）`:""}`:""})()}</div>${roomTxt(b)&&(ROLE==="own"||isPub(b))?`<div style="font-weight:700;margin-top:4px">🏠 ${esc(roomTxt(b))}</div>`:""}
  ${allRooms(b).length?barHTML(allRooms(b))+`<div class="nums" style="margin-top:4px">${["mi",...PICK,"ke"].filter(s=>s==="mi"||c[s]).map(s=>RES[s].l+" "+c[s]).join("／")}${c.dg?`／<span style="color:var(--r-ke-t);font-weight:700">⚠危険 ${c.dg}</span>`:""}</div>`:""}${scoreTxt(b)}
  ${(()=>{const w=todayWho(b),ns=Object.keys(w).filter(n=>n!==ME);return ns.length?`<div class="note tdyn"><b>今日すでに回っている人</b>${ns.map(n=>esc(n)+"さん（"+w[n]+"部屋）").join("・")}</div>`:""})()}
+ ${(()=>{const r=routeWho(b.id);return r.length?`<div class="note tdyn"><b>今日のルートに入れている人</b>${r.map(n=>esc(n)+"さん").join("・")}（被っています）</div>`:""})()}
  ${trBox(b)}
  <details id="bdet" class="det" ${st.detOpen||st.editMemo?"open":""}><summary>物件の詳細（ネット情報・メモ・地図）</summary>
  <div class="nums" style="margin-top:4px"><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.addr+" "+b.name)}" target="_blank" rel="noopener">Googleマップで見る</a>　<a href="https://www.google.com/search?q=${encodeURIComponent(b.name+" "+b.city+" site:suumo.jp")}" target="_blank" rel="noopener">SUUMOで探す</a>　<a href="https://www.google.com/search?q=${encodeURIComponent(b.name+" "+b.city+" site:homes.co.jp")}" target="_blank" rel="noopener">HOME'Sで探す</a>　<a href="https://www.google.com/search?q=${encodeURIComponent(b.name+" "+b.addr+" 間取り")}" target="_blank" rel="noopener">Googleで探す</a>${b.lat!=null?`　<a href="https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}" target="_blank" rel="noopener">道案内</a>`:""}</div>
@@ -463,6 +483,7 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
  if(t.dataset.trnow){st.adv=Object.assign(ADV(),{trs:[t.dataset.trnow]});st.lim=50;keep();return render()}
  if(t.dataset.tr&&st.b){st.trOpen=true;setTr(st.b,t.dataset.tr);const y=scrollY;render();scrollTo(0,y);return}
  if(t.dataset.fav){toggleFav(t.dataset.fav);const y=scrollY;render();scrollTo(0,y);return toast(isFav(t.dataset.fav)?"★ 気になるに入れました":"気になるから外しました")}
+ if(t.dataset.rt){routeToggle(t.dataset.rt);if(MAP)st.mapView={c:MAP.getCenter(),z:MAP.getZoom()};const y=scrollY;render();scrollTo(0,y);return}
  if(t.id==="routeMk"){return routeAsk()}
  if(t.id==="rtFav"){return startRoute(true)}
  if(t.id==="rtCond"){return startRoute(false)}

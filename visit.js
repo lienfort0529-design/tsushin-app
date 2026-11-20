@@ -42,6 +42,40 @@ function dtxt(d){return d>=1e8?"":d<1?Math.round(d*1000/10)*10+"m":d.toFixed(1)+
 function cityCenter(){const a=VIS().filter(b=>b.city===st.city&&b.lat!=null);if(!a.length)return null;return [a.reduce((s,b)=>s+b.lat,0)/a.length,a.reduce((s,b)=>s+b.lng,0)/a.length]}
 function fallbackNear(msg){const c=st.city&&cityCenter();if(c){st.pos=c;st.posCity=true;st.near=true;st.lim=50;render();toast(msg+"。"+st.city+"の中心から近い順に出しています")}else toast(msg+"。市区町村を選ぶと、その中心から近い順に出せます")}
 function locate(){if(!navigator.geolocation)return fallbackNear("この画面では現在地が使えません");toast("現在地を取得中…");navigator.geolocation.getCurrentPosition(p=>{st.pos=[p.coords.latitude,p.coords.longitude];st.posCity=false;st.near=true;st.lim=50;render()},e=>fallbackNear(e.code===1?"位置情報が許可されていません":"現在地を取得できませんでした"),{enableHighAccuracy:true,timeout:15000,maximumAge:60000})}
+// 2点のあいだの距離（km）
+function kmAB(a,b){const R=6371,r=Math.PI/180,dl=(b[0]-a[0])*r,dg=(b[1]-a[1])*r;const x=Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+const isToday=t=>t&&new Date(t).toDateString()===new Date().toDateString();
+// 話せた＝不在・インターホンNG・フロントNG・空室 以外
+const TALK=["so","kn","ok","ka"];
+// 物件ごとの成績（全員分）
+function bScore(b){const hs=allRooms(b).flatMap(k=>hist(k));const v=hs.length,t=hs.filter(h=>TALK.includes(h.s)).length,ok=hs.filter(h=>h.s==="ok").length;return {v,t,ok}}
+// 今日この物件を回った人（自分以外も）
+function todayWho(b){const m={};allRooms(b).forEach(k=>hist(k).forEach(h=>{if(isToday(h.t))m[h.w]=(m[h.w]||0)+1}));return m}
+// ===== 今日のルート（このスマホに、その日だけ保存）=====
+let ROUTE=(()=>{const r=load("au_route",null);return r&&r.d===new Date().toDateString()?r:null})();
+function makeRoute(pos){const cand=filtered().filter(b=>b.lat!=null);if(!cand.length){toast("いまの条件に地図に出せる物件がありません");return}
+ const out=[],used=new Set();let cur=pos;for(let i=0;i<8;i++){let m=null,d=1e9;cand.forEach(b=>{if(used.has(b.id))return;const x=kmAB(cur,[b.lat,b.lng]);if(x<d){d=x;m=b}});if(!m)break;used.add(m.id);out.push(m.id);cur=[m.lat,m.lng]}
+ ROUTE={d:new Date().toDateString(),ids:out,from:pos};save("au_route",ROUTE);st.lim=50;render();toast("いまの条件で、近い順に"+out.length+"件つなぎました")}
+function routeBox(){if(!ROUTE||!ROUTE.ids.length)return "";const bs=ROUTE.ids.map(id=>BY[id]).filter(Boolean);let prev=ROUTE.from;
+ const rows=bs.map((b,i)=>{const d=b.lat!=null&&prev?kmAB(prev,[b.lat,b.lng]):null;if(b.lat!=null)prev=[b.lat,b.lng];const done=Object.keys(todayWho(b)).includes(ME);
+  return `<button class="rrow ${done?"done":""}" data-b="${b.id}"><span class="rn">${done?"✓":i+1}</span><span class="rb"><b>${esc(b.name)}</b><small>${esc(b.addr)}</small></span><span class="rd">${d!=null?dtxt(d):""}</span></button>`}).join("");
+ const wp=bs.filter(b=>b.lat!=null);const url=wp.length?`https://www.google.com/maps/dir/?api=1&origin=${ROUTE.from[0]},${ROUTE.from[1]}&destination=${wp[wp.length-1].lat},${wp[wp.length-1].lng}${wp.length>1?"&waypoints="+wp.slice(0,-1).map(b=>b.lat+","+b.lng).join("|"):""}&travelmode=walking`:"";
+ return `<div class="route"><div class="rh"><b>🗺 今日のルート（${bs.length}件）</b><button id="routeClr">消す</button></div>${rows}${url?`<a class="rgo" href="${url}" target="_blank" rel="noopener">Googleマップで順番に案内（徒歩）</a>`:""}</div>`}
+function startRoute(){if(!navigator.geolocation){const c=st.city&&cityCenter();return c?makeRoute(c):toast("市区町村を選ぶと、その中心からルートを作れます")}toast("現在地を取得中…");navigator.geolocation.getCurrentPosition(p=>makeRoute([p.coords.latitude,p.coords.longitude]),()=>{const c=st.city&&cityCenter();if(c){toast("現在地が使えないので、"+st.city+"の中心から作ります");makeRoute(c)}else toast("現在地が使えません。市区町村を選んでからもう一度押してください")},{enableHighAccuracy:true,timeout:15000,maximumAge:60000})}
+// ===== 今日の自分の成績（一覧の上）=====
+function myToday(){if(!ME)return "";const R=allRecs().filter(h=>h.w===ME&&isToday(h.t));const t=R.filter(h=>TALK.includes(h.s)).length,ok=R.filter(h=>h.s==="ok").length,kn=R.filter(h=>h.s==="kn").length;
+ return `<div class="mytoday"><span>今日の自分</span><b>${R.length}</b>訪問<b>${t}</b>話せた<b>${kn}</b>検討<b>${ok}</b>獲得</div>`}
+// ===== 再訪おすすめ（今の時間なら会えそう）=====
+const band3=t=>{const h=new Date(t).getHours();return h<12?"朝":h<17?"昼":"夜"};
+const wk=t=>{const d=new Date(t).getDay();return d===0||d===6?"土日":"平日"};
+function revisit(){const now=Date.now(),nb=band3(now),nw=wk(now),out=[];
+ Object.keys(H).forEach(k=>{const h=hist(k),l=h[h.length-1],b=BY[+k.split("#")[0]];if(!l||!b||!["fu","kn"].includes(l.s)||isToday(l.t))return;
+  const met=h.filter(x=>TALK.includes(x.s)&&x.t&&band3(x.t)===nb).length,tried=h.filter(x=>x.s==="fu"&&x.t&&band3(x.t)===nb&&wk(x.t)===nw).length;
+  let why="",sc=0;if(l.s==="kn"){why="検討中";sc=3}if(met){why+=(why?"・":"")+"前に"+nb+"に話せた";sc+=2}else if(!tried&&l.s==="fu"){why+=(why?"・":"")+nw+"の"+nb+"はまだ行っていない";sc+=1}
+  if(sc)out.push({k,b,l,why,sc,no:k.split("-").pop(),tou:b.tou.length>1?b.tou[+k.split("#")[1].split("-")[0]]:""})});
+ return out.sort((a,b)=>b.sc-a.sc||(a.l.t||0)-(b.l.t||0))}
+// ===== 近くのまだ回っていない物件（物件ページの下）=====
+function nearHot(b){if(b.lat==null)return [];return VIS().filter(x=>x.id!==b.id&&x.lat!=null&&isHot(x)).map(x=>({x,d:kmAB([b.lat,b.lng],[x.lat,x.lng])})).filter(o=>o.d<1.5).sort((a,c)=>a.d-c.d).slice(0,3)}
 function hereCity(){let m=null,d=1e9;VIS().forEach(b=>{const x=km(b);if(x<d){d=x;m=b}});return m?m.city:""}
 try{st.mode=localStorage.getItem("mode")||"list"}catch(e){}
 const $=s=>document.querySelector(s);
@@ -75,6 +109,9 @@ function drawMap(){const el=$("#map");if(!el||!window.L)return;if(MAP){MAP.remov
  a.forEach(b=>{const col=b.kind==="c"?"#c92a2a":b.kind==="p"?"#c99a00":touched(b)?"#1f4e79":"#e8590c";
   L.circleMarker([b.lat,b.lng],{radius:Math.min(12,5+Math.sqrt(b.nt)),color:"#fff",weight:1.5,fillColor:col,fillOpacity:.9}).addTo(MAP)
    .bindPopup(`<b>${esc(b.name)}</b><br>${esc(b.addr)}${b.nt>1?"・"+b.nt+"棟":""}${roomTxt(b)&&(ROLE==="own"||isPub(b))?"<br>🏠 "+esc(roomTxt(b)):""}${st.pos?"<br>現在地から "+dtxt(km(b)):""}<button class="pop" data-b="${b.id}">この物件を開く</button><a class="gm" href="https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}" target="_blank" rel="noopener">Googleマップで道案内</a>`);pts.push([b.lat,b.lng])});
+ a.forEach(b=>{if(Object.keys(todayWho(b)).length)L.circleMarker([b.lat,b.lng],{radius:Math.min(12,5+Math.sqrt(b.nt))+5,color:"#7048e8",weight:3,fill:false,interactive:false}).addTo(MAP)});
+ if(ROUTE&&ROUTE.ids.length){const rp=[ROUTE.from].concat(ROUTE.ids.map(id=>BY[id]).filter(b=>b&&b.lat!=null).map(b=>[b.lat,b.lng]));L.polyline(rp,{color:"#e8590c",weight:3,dashArray:"6 6"}).addTo(MAP);
+  ROUTE.ids.map(id=>BY[id]).filter(b=>b&&b.lat!=null).forEach((b,i)=>L.marker([b.lat,b.lng],{icon:L.divIcon({className:"rnum",html:String(i+1),iconSize:[22,22]})}).addTo(MAP).on("click",()=>{st.b=b.id;st.t=0;render()}))}
  if(st.pos){L.circleMarker(st.pos,{radius:8,color:"#fff",weight:3,fillColor:"#2f9e44",fillOpacity:1}).addTo(MAP);MAP.setView(st.pos,15)}
  else if(pts.length)MAP.fitBounds(pts,{padding:[20,20],maxZoom:16});else MAP.setView([34.69,135.5],10)}
 function rowsFor(b){const m=memOf(b),ks=allRooms(b),c=stats(ks);const hs=ks.flatMap(k=>hist(k));const lastD=hs.map(h=>h.d).sort().pop()||"";const g=age(m);
@@ -136,9 +173,10 @@ function advBox(){const D=ADV(),n=filtered().length;const ck=(on,attr,l)=>`<butt
  <div class="advh">訪問の状況</div><div class="chips">${ck(D.left,'data-advb="left"',"まだ回っていない部屋が半分以上")}${ck(D.kn,'data-advb="kn"',"検討の部屋がある")}</div>
  <div class="advf"><button class="advclr" id="advClr">条件をクリア</button><button class="save" id="advGo">${n.toLocaleString()}件の物件を見る</button></div></div>`}
 function list(){const a=filtered();const hc=st.near&&st.pos?hereCity():"";
- return `<div class="srow"><input class="search" id="q" type="search" enterkeyhint="search" placeholder="物件名・住所・メモで検索" value="${esc(st.q)}"><button class="advbtn" id="advBtn" aria-expanded="${!!st.advOpen}">条件${advN()?`<span class="advn">${advN()}</span>`:""}</button></div>
+ return `${myToday()}<div class="srow"><input class="search" id="q" type="search" enterkeyhint="search" placeholder="物件名・住所・メモで検索" value="${esc(st.q)}"><button class="advbtn" id="advBtn" aria-expanded="${!!st.advOpen}">条件${advN()?`<span class="advn">${advN()}</span>`:""}</button></div>
  ${st.advOpen?advBox():""}
- <button class="near" id="near" aria-pressed="${st.near}">${st.near?"📍 近い順で表示中（タップで解除）":"📍 現在地から近い物件"}</button>
+ <div class="nrow"><button class="near" id="near" aria-pressed="${st.near}">${st.near?"📍 近い順で表示中（解除）":"📍 現在地から近い物件"}</button><button class="near rbtn" id="routeMk">🗺 今日のルート</button></div>
+ ${routeBox()}
  ${hc?`<div class="here"><span>${st.posCity?"基準":"いまいる場所"}：<b>${st.posCity?st.city+"の中心":hc}</b></span>${st.city!==hc?`<button data-city="${hc}">${hc}だけ見る</button>`:""}</div>`:""}
  <select class="sel" id="city" aria-label="市区町村"><option value="">大阪府すべて（${VIS().length.toLocaleString()}件）</option>${CITIES.map(c=>`<option value="${esc(c)}" ${c===st.city?"selected":""}>${esc(c)}（${CITY_N[c].toLocaleString()}）</option>`).join("")}</select>
  <div class="seg" style="margin-top:10px">${[["t","自社リスト物件","Dropboxに無い"],["d","上位店の公開物件","Dropboxにある"],["a","すべて",""]].map(([k,l,n])=>`<button data-src="${k}" aria-pressed="${(st.src||"t")===k}">${l}${n?`<small class="segn">${n}</small>`:""}</button>`).join("")}</div>
@@ -146,7 +184,7 @@ function list(){const a=filtered();const hc=st.near&&st.pos?hereCity():"";
  ${(()=>{const [k,t]=timeHint();const want=k==="fam"?"f2,f3":k;return ADV().mgs.join(",")===want?"":`<div class="here"><span>🕒 ${t}</span><button data-mg="${k}">この条件で出す</button></div>`})()}
  <div class="seg"><button data-view="list" aria-pressed="${st.view==="list"}">リスト</button><button data-view="map" aria-pressed="${st.view==="map"}">地図</button></div>
  <div id="res">${listRes(a)}</div>`}
-function listRes(a){return ` ${st.view==="map"?`<div id="map" role="region" aria-label="物件の地図"></div><div class="legend"><span><i style="background:#e8590c"></i>未着手</span><span><i style="background:#1f4e79"></i>訪問中</span><span><i style="background:#c99a00"></i>一部だけ</span><span><i style="background:#c92a2a"></i>現場で確認</span><span><i style="background:#2f9e44"></i>現在地</span></div><div class="small" style="margin-top:4px">${a.filter(b=>b.lat!=null).length.toLocaleString()}件を表示中</div>`:`<div class="small" style="margin-bottom:6px">${a.length.toLocaleString()}件（${st.near&&st.pos?"近い順":"棟数の多い順"}）</div>
+function listRes(a){return ` ${st.view==="map"?`<div id="map" role="region" aria-label="物件の地図"></div><div class="legend"><span><i style="background:#e8590c"></i>未着手</span><span><i style="background:#1f4e79"></i>訪問中</span><span><i style="background:#c99a00"></i>一部だけ</span><span><i style="background:#c92a2a"></i>現場で確認</span><span><i style="background:#2f9e44"></i>現在地</span><span><i style="background:none;border:2px solid #7048e8"></i>今日だれかが回った</span></div><div class="small" style="margin-top:4px">${a.filter(b=>b.lat!=null).length.toLocaleString()}件を表示中</div>`:`<div class="small" style="margin-bottom:6px">${a.length.toLocaleString()}件（${st.near&&st.pos?"近い順":"棟数の多い順"}）</div>
  <div class="list">${a.slice(0,st.lim).map(b=>bCard(b)).join("")||emptyMsg()}</div>
  ${a.length>st.lim?`<button class="more" id="more">さらに表示（残り ${(a.length-st.lim).toLocaleString()}件）</button>`:""}`}`}
 const age=m=>{const y=m&&String(m.shunko||"").match(/(19|20)\d\d/);return y?new Date().getFullYear()-+y[0]:null};
@@ -186,7 +224,8 @@ function detail(){const b=BY[st.b];if(RECENT[0]!==b.id){const i=RECENT.indexOf(b
  return `<button class="back" id="back"><span class="ar">‹</span><span>${backLabel()}</span><span class="bn">${esc(b.name)}</span></button><div class="dt">
  <div class="top" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">${isHot(b)?'<span class="tag hot">🔥未着手</span>':""}${KIND[b.kind]}${VTAG(b)}</div>
  <div class="h2row"><h2>${esc(b.name)}</h2><button class="fav" id="favb" aria-pressed="${!!FAV[b.id]}">${FAV[b.id]?"★ 気になる":"☆ 気になる"}</button></div><div class="tyrow">${(()=>{const t=typeOf(b);return t?`auひかり <b class="ty ty-${t}">${TYPE_TXT[t]}</b>`:`auひかり タイプ：<b>現場で確認</b>（分かったら自社メモの「種別」に V か G）`})()}</div><div class="addr">${esc(b.addr)}${b.nt>1?`・${b.nt}棟`:""}${(()=>{const z=sizeOf(b);return z.kai?`・${z.kai}階建${z.kosu?"・"+z.kosu+"戸":""}${z.per?`（1フロア約${z.per}戸）`:""}`:""})()}</div>${roomTxt(b)&&(ROLE==="own"||isPub(b))?`<div style="font-weight:700;margin-top:4px">🏠 ${esc(roomTxt(b))}</div>`:""}
- ${allRooms(b).length?barHTML(allRooms(b))+`<div class="nums" style="margin-top:4px">${["mi",...PICK,"ke"].filter(s=>s==="mi"||c[s]).map(s=>RES[s].l+" "+c[s]).join("／")}${c.dg?`／<span style="color:var(--r-ke-t);font-weight:700">⚠危険 ${c.dg}</span>`:""}</div>`:""}
+ ${allRooms(b).length?barHTML(allRooms(b))+`<div class="nums" style="margin-top:4px">${["mi",...PICK,"ke"].filter(s=>s==="mi"||c[s]).map(s=>RES[s].l+" "+c[s]).join("／")}${c.dg?`／<span style="color:var(--r-ke-t);font-weight:700">⚠危険 ${c.dg}</span>`:""}</div>`:""}${scoreTxt(b)}
+ ${(()=>{const w=todayWho(b),ns=Object.keys(w).filter(n=>n!==ME);return ns.length?`<div class="note tdyn"><b>今日すでに回っている人</b>${ns.map(n=>esc(n)+"さん（"+w[n]+"部屋）").join("・")}</div>`:""})()}
  <details id="bdet" class="det" ${st.detOpen||st.editMemo?"open":""}><summary>物件の詳細（ネット情報・メモ・地図）</summary>
  <div class="nums" style="margin-top:4px"><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.addr+" "+b.name)}" target="_blank" rel="noopener">Googleマップで見る</a>　<a href="https://www.google.com/search?q=${encodeURIComponent(b.name+" "+b.city+" site:suumo.jp")}" target="_blank" rel="noopener">SUUMOで探す</a>　<a href="https://www.google.com/search?q=${encodeURIComponent(b.name+" "+b.city+" site:homes.co.jp")}" target="_blank" rel="noopener">HOME'Sで探す</a>　<a href="https://www.google.com/search?q=${encodeURIComponent(b.name+" "+b.addr+" 間取り")}" target="_blank" rel="noopener">Googleで探す</a>${b.lat!=null?`　<a href="https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}" target="_blank" rel="noopener">道案内</a>`:""}</div>
  ${b.note?`<div class="note"><b>確認メモ</b>${esc(b.note)}</div>`:""}
@@ -197,7 +236,8 @@ function detail(){const b=BY[st.b];if(RECENT[0]!==b.id){const i=RECENT.indexOf(b
  ${touHTML}
  ${lay?`<div class="seg"><button data-m="list" aria-pressed="${st.mode==="list"}">リスト</button><button data-m="grid" aria-pressed="${st.mode==="grid"}">マス目</button></div>`:""}
  ${body}
- ${(()=>{const hs=bHist(b);return hs.length?`<details id="hdet" class="det" ${st.hOpen?"open":""}><summary>この物件の訪問記録（${hs.length}件）</summary><ul class="hist2">${hs.slice(0,30).map(h=>`<li><span class="who">${when(h)}</span><b>${esc(h.w)}</b><span>${h.tou?esc(h.tou)+" ":""}${h.room}</span><span>${chip(h.s)} ${esc(h.m||"")}</span></li>`).join("")}</ul></details>`:""})()}</div>`}
+ ${(()=>{const hs=bHist(b);return hs.length?`<details id="hdet" class="det" ${st.hOpen?"open":""}><summary>この物件の訪問記録（${hs.length}件）</summary><ul class="hist2">${hs.slice(0,30).map(h=>`<li><span class="who">${when(h)}</span><b>${esc(h.w)}</b><span>${h.tou?esc(h.tou)+" ":""}${h.room}</span><span>${chip(h.s)} ${esc(h.m||"")}</span></li>`).join("")}</ul></details>`:""})()}
+ ${(()=>{const n=nearHot(b);return n.length?`<h3 class="myh" style="margin-top:18px">📍 この近くでまだ回っていない物件</h3><div class="list">${n.map(o=>`<button class="bcard" data-b="${o.x.id}"><div class="top"><b>${esc(o.x.name)}</b><span class="dist">${dtxt(o.d)}</span></div><div class="addr">${esc(o.x.addr)}${o.x.nt>1?"・"+o.x.nt+"棟":""}</div>${roomTxt(o.x)?`<div class="nums" style="color:var(--fg)">🏠 ${esc(roomTxt(o.x))}</div>`:""}</button>`).join("")}</div>`:""})()}</div>`}
 function allRecs(){const out=[];Object.keys(H).forEach(k=>{const b=BY[k.split("#")[0]];if(!b)return;const ti=+k.split("#")[1].split("-")[0];H[k].forEach(h=>out.push({...h,b,room:k.split("-").pop(),tou:b.tou.length>1?b.tou[ti]:""}))});return out.sort((x,y)=>(y.t||0)-(x.t||0))}
 // auひかりのタイプ：Dropboxの「種別」か、自社メモの「種別」から読む（KDDIのデータには入っていない）
 // V＝最大100M、G＝速い（1G）。両方書いてあるものは「V・G」
@@ -207,8 +247,9 @@ const TYPE_TXT={V:"タイプV（最大100M）",G:"タイプG（1G・速い）",V
 const typeTag=b=>{const t=typeOf(b);return t?`<span class="tag ty ty-${t}">${t==="VG"?"V・G":t}</span>`:""};
 // 物件のカード（一覧・マイページで使う）
 function bCard(b){const ks=allRooms(b),c=stats(ks);return `<button class="bcard" data-b="${b.id}">
-  <div class="top"><b>${esc(b.name)}</b>${typeTag(b)}${FAV[b.id]?'<span class="tag favt">★</span>':""}${isHot(b)?'<span class="tag hot">🔥未着手</span>':""}${KIND[b.kind]}${VTAG(b)}${MM[b.id]&&ROLE==="own"?'<span class="tag as">📝メモ</span>':""}${st.near&&st.pos?`<span class="dist">${dtxt(km(b))}</span>`:""}</div>
-  <div class="addr">${esc(b.addr)}${b.nt>1?`・${b.nt}棟`:""}</div>${roomTxt(b)&&(ROLE==="own"||isPub(b))?`<div class="nums" style="color:var(--fg)">🏠 ${esc(roomTxt(b))}</div>`:""}${ks.length?barHTML(ks)+`<div class="nums">未訪問 ${c.mi}／不在 ${c.fu}／検討 ${c.kn}／契約 ${c.ok}${c.dg?`／<span style="color:var(--r-ke-t);font-weight:700">⚠${c.dg}</span>`:""}</div>`:""}</button>`}
+  <div class="top"><b>${esc(b.name)}</b>${typeTag(b)}${FAV[b.id]?'<span class="tag favt">★</span>':""}${isHot(b)?'<span class="tag hot">🔥未着手</span>':""}${KIND[b.kind]}${VTAG(b)}${MM[b.id]&&ROLE==="own"?'<span class="tag as">📝メモ</span>':""}${(()=>{const w=Object.keys(todayWho(b));return w.length?`<span class="tag tdy">今日 ${esc(w.join("・"))}</span>`:""})()}${st.near&&st.pos?`<span class="dist">${dtxt(km(b))}</span>`:""}</div>
+  <div class="addr">${esc(b.addr)}${b.nt>1?`・${b.nt}棟`:""}</div>${roomTxt(b)&&(ROLE==="own"||isPub(b))?`<div class="nums" style="color:var(--fg)">🏠 ${esc(roomTxt(b))}</div>`:""}${ks.length?barHTML(ks)+`<div class="nums">未訪問 ${c.mi}／不在 ${c.fu}／検討 ${c.kn}／契約 ${c.ok}${c.dg?`／<span style="color:var(--r-ke-t);font-weight:700">⚠${c.dg}</span>`:""}</div>`:""}${scoreTxt(b)}</button>`}
+function scoreTxt(b){const s=bScore(b);return s.v?`<div class="nums score">訪問 ${s.v}・話せた ${s.t}・獲得 ${s.ok}（獲得率 ${(s.ok/s.v*100).toFixed(0)}%）</div>`:""}
 // ===== マイページ（自分の記録・気になる・最近見た物件）=====
 // ★気になる（au_fav）と最近見た物件（au_recent）は、このスマホにだけ保存する
 const FAV=load("au_fav",{}),RECENT=load("au_recent",[]);
@@ -226,6 +267,7 @@ function my(){if(!ME)return `<div class="note"><b>名前が選ばれていませ
  const ago=t=>{const d=Math.floor((Date.now()-t)/864e5);return d<=0?"今日":d+"日前"};
  return `<div class="mytop"><b>${esc(ME)} さん</b><div class="mystat"><div><span>今日</span><b>${T.v}</b>部屋<small>検討 ${T.kn}・契約 ${T.ok}</small></div><div><span>今月</span><b>${M.v}</b>部屋<small>検討 ${M.kn}・契約 ${M.ok}</small></div></div></div>`
  +sec("🔁 自分の検討（もう一度行く部屋）",kn.length,`<div class="list">${kn.slice(0,30).map(x=>`<button class="bcard" data-b="${x.b.id}"><div class="top"><b>${esc(x.b.name)}</b><span class="tag">${esc(x.tou?x.tou+" ":"")}${esc(x.no)}号室</span></div><div class="nums">${when(x.l)}（${ago(x.l.t||0)}）${x.l.m?"「"+esc(x.l.m)+"」":""}</div></button>`).join("")}</div>`,"検討のままの部屋はありません。")
+ +(()=>{const r=revisit();return sec("⏰ 今の時間なら会えそう（"+wk(Date.now())+"の"+band3(Date.now())+"）",r.length,`<div class="list">${r.slice(0,20).map(x=>`<button class="bcard" data-b="${x.b.id}"><div class="top"><b>${esc(x.b.name)}</b><span class="tag">${esc(x.tou?x.tou+" ":"")}${esc(x.no)}号室</span>${chip(x.l.s)}</div><div class="nums">${esc(x.why)}／最後 ${when(x.l)} ${esc(x.l.w)}</div></button>`).join("")}</div>`,"いまの時間におすすめの部屋はありません（不在・検討の部屋が、時間帯を変えて出てきます）。")})()
  +sec("★ 気になる",favs.length,`<div class="list">${favs.map(bCard).join("")}</div>`,"物件ページの「☆ 気になる」を押すと、ここに集まります。")
  +sec("🚶 自分が回った物件",went.length,`<div class="list">${went.slice(0,30).map(x=>`<button class="bcard" data-b="${x.b.id}"><div class="top"><b>${esc(x.b.name)}</b>${FAV[x.b.id]?'<span class="tag favt">★</span>':""}</div><div class="addr">${esc(x.b.addr)}</div><div class="nums">最後に行った日 ${x.t?md(x.t):"-"}（${x.t?ago(x.t):"-"}）／${x.rooms.size}部屋${x.kn?"・検討 "+x.kn:""}${x.ok?"・契約 "+x.ok:""}</div></button>`).join("")}</div>`,"まだ記録がありません。")
  +sec("🕘 最近見た物件",rec.length,`<div class="list">${rec.map(bCard).join("")}</div>`,"まだありません。")}
@@ -307,6 +349,16 @@ function openRoom(k){if(!ME)return askName(()=>openRoom(k));st.room=k;st.pick=nu
  <button class="save" id="save" disabled>結果を選んでください</button>
  <label class="auto"><input type="checkbox" id="auto" ${st.auto?"checked":""}>記録したら次の部屋をすぐ開く</label>
  <div class="addr" style="margin-top:14px">これまでの記録</div><ul class="hist">${h.length?h.map((x,i)=>[x,i]).reverse().map(([x,i])=>`<li>${chip(x.s)}<span class="who">${when(x)} ${esc(x.w)}</span><span>${esc(x.m||"")}${x.w===ME?` <button class="undo" data-del="${i}">取り消す</button>`:""}</span></li>`).join(""):'<li style="display:block;color:var(--sub)">まだ記録がありません</li>'}</ul>${h.length?"":`<button class="gonebtn" id="gonek">この部屋は存在しない（一覧から消す）</button>`}</div></div>`}
+// ===== マス目・リストの部屋を長押し → 結果を1タップで記録（契約は入力が要るので通常の画面で）=====
+const LP={tm:0,done:false};
+function quickMenu(k){if(!ME)return askName(()=>quickMenu(k));st.qk=k;const no=k.split("-").pop(),b=BY[k.split("#")[0]];
+ $("#layer").innerHTML=`<div class="shade" id="shade"></div><div class="sheet" role="dialog" aria-label="${no}号室をすぐ記録"><div class="in"><div class="grab"></div><b style="font-size:17px">${no}号室をすぐ記録</b> <span class="addr">${esc(b.name)}</span>
+ <div class="btns">${PICK.filter(s=>s!=="ok").map(s=>`<button class="${RES[s].c}" data-qs="${s}">${RES[s].l}</button>`).join("")}</div><div class="small" style="margin-top:8px">契約・備考・⚠危険は、部屋を普通にタップして記録してください。</div></div></div>`}
+function quickRec(k,s){const d=new Date();(H[k]=H[k]||[]).push({id:VS.id(),s:s,d:String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0"),w:ME,t:Date.now(),m:""});save("au_hist",H);st.qk=null;$("#layer").innerHTML="";const y=scrollY;render();scrollTo(0,y);undoToast(k.split("-").pop()+"号室を「"+RES[s].l+"」で記録しました"+(VS.counted(s)?"（カウンターにも）":""),k,H[k].length-1)}
+document.addEventListener("pointerdown",e=>{const c=e.target.closest(".cell[data-k],.room[data-k]");if(!c)return;LP.done=false;clearTimeout(LP.tm);LP.tm=setTimeout(()=>{LP.done=true;if(navigator.vibrate)navigator.vibrate(15);quickMenu(c.dataset.k)},550)});
+["pointerup","pointercancel","pointerleave"].forEach(ev=>document.addEventListener(ev,()=>clearTimeout(LP.tm)));
+document.addEventListener("scroll",()=>clearTimeout(LP.tm),{passive:true});
+document.addEventListener("contextmenu",e=>{if(e.target.closest(".cell[data-k],.room[data-k]"))e.preventDefault()});
 function closeRoom(){$("#layer").innerHTML="";st.room=null}
 function undoToast(msg,k,i){document.querySelectorAll(".toast.u").forEach(e=>e.remove());const e=document.createElement("div");e.className="toast u";e.innerHTML=esc(msg)+` <button class="undo" data-undo="${esc(k)}" data-i="${i}">取り消す</button>`;document.body.appendChild(e);setTimeout(()=>e.remove(),6000)}
 function delRec(k,i){document.querySelectorAll(".toast.u").forEach(e=>e.remove());const h=H[k];if(!h||!h[i]||h[i].w!==ME)return toast("自分の記録だけ取り消せます");h.splice(i,1);if(!h.length)delete H[k];save("au_hist",H);const y=scrollY;render();scrollTo(0,y);toast("記録を取り消しました")}
@@ -337,6 +389,9 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
  if(t.id==="dopub"){const d=new Date();PUB[t.dataset.id]=(d.getMonth()+1)+"/"+d.getDate();save("au_pub",PUB);closeRoom();render();return toast("公開しました（Dropboxに記載）")}
  if(t.dataset.unpub){delete PUB[t.dataset.unpub];save("au_pub",PUB);render();return toast("自社のみに戻しました")}
  if(t.dataset.view){st.view=t.dataset.view;keep();return render()}
+ if(t.id==="routeMk"){return startRoute()}
+ if(t.id==="routeClr"){ROUTE=null;save("au_route",null);return render()}
+ if(t.dataset.qs&&st.qk){return quickRec(st.qk,t.dataset.qs)}
  if(t.id==="advBtn"){st.advOpen=!st.advOpen;const y=scrollY;render();scrollTo(0,y);return}
  if(t.dataset.advmg||t.dataset.advk!==undefined||t.dataset.advb||t.id==="advClr"){const D=ADV();
   if(t.dataset.advmg){const k=t.dataset.advmg;D.mgs=D.mgs.includes(k)?D.mgs.filter(x=>x!==k):D.mgs.concat(k);if(D.mgs.length)st.mg=""}
@@ -363,7 +418,7 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
   saveLay();return keepY(render)}
  if(t.id==="mk"){const f=Math.max(1,Math.min(60,+$("#lf").value||0)),p=Math.max(1,Math.min(40,+$("#lp").value||0));LAY[tk(BY[st.b],st.t)]={f,p};saveLay();keepY(render);return toast(f*p+"部屋を作りました")}
  if(t.dataset.m){st.mode=t.dataset.m;try{localStorage.setItem("mode",st.mode)}catch(e){}return keepY(render)}
- if(t.dataset.k)return openRoom(t.dataset.k);
+ if(t.dataset.k){if(LP.done){LP.done=false;return}return openRoom(t.dataset.k)}
  if(t.id==="dgflag"&&st.room){const k=st.room;if(DGR[k]){if(st.dgAsk!==k){st.dgAsk=k;t.textContent="もう一度タップすると⚠の印を外します";return}st.dgAsk=null;delete DGR[k];toast("⚠の印を外しました")}else{const d=new Date();DGR[k]={w:ME,d:String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0"),t:Date.now(),m:""};toast("⚠危険の印を付けました")}save("au_danger",DGR);const y=scrollY;render();scrollTo(0,y);openRoom(k);return}
  if(t.dataset.s){st.pick=t.dataset.s;$("#custBox").hidden=st.pick!=="ok";document.querySelectorAll(".btns button").forEach(x=>x.setAttribute("aria-pressed",x===t));const s=$("#save");s.disabled=false;s.textContent=RES[st.pick].l+" で記録する"+(VS.counted(st.pick)?"（カウンターにも入ります）":"");return}
  if(t.id==="save"&&st.pick){let cust=null;if(st.pick==="ok"){const kana=v=>v.replace(/[\s　]/g,"").replace(/[ぁ-ゖ]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60));const c={appDate:$("#vdate").value,product:$("#vprod").value,customer:$("#vcust").value.trim(),sei:kana($("#vsei").value),mei:kana($("#vmei").value)};$("#vsei").value=c.sei;$("#vmei").value=c.mei;const err=!c.appDate?"申込日を入れてください":!c.product?"商材を選んでください":!c.customer?"お客様名を入れてください":!c.sei||!c.mei?"セイ・メイ（カナ）を入れてください":!/^[ァ-ヶー]+$/.test(c.sei+c.mei)?"セイ・メイはカタカナで入れてください":"";if(err){$("#custErr").textContent=err;return}cust=c}

@@ -176,17 +176,7 @@
   function undo() {
     const name = $('name').value;
     if (!name) { $('msg').textContent = '名前を選んでください'; return; }
-    // 確かめの小窓（confirm）は、LINEなどのアプリの中のブラウザでは出ずに「いいえ」扱いになるので、
-    // ボタンを2回押す形にする（1回目でボタンの文字が変わり、4秒以内にもう一度押すと取り消す）
-    const btn = $('undo');
-    if (!btn.dataset.ask) {
-      btn.dataset.ask = '1';
-      btn.textContent = 'もう一度押すと取り消します（獲得なら申込一覧の行も消えます）';
-      clearTimeout(undo.t);
-      undo.t = setTimeout(resetUndo, 4000);
-      return;
-    }
-    resetUndo();
+    if (!confirm('直前の記録を取り消しますか？（獲得なら申込一覧の行も消えます）')) return;
     const i = queue.map(q => q.name).lastIndexOf(name);
     if (i >= 0) {
       queue.splice(i, 1); saveQueue(); render();
@@ -199,13 +189,6 @@
       .withSuccessHandler(c => { setBusy(false); sent = c; render(); $('msg').textContent = '取り消しました'; })
       .withFailureHandler(e => { setBusy(false); $('msg').textContent = 'エラー: ' + e.message; })
       .undoLast(name);
-  }
-
-  function resetUndo() {
-    const btn = $('undo');
-    clearTimeout(undo.t);
-    delete btn.dataset.ask;
-    btn.textContent = '↩ 直前を取り消す';
   }
 
   // 少しの間、画面全体を覆ってほかのボタンや名前を触れないようにする

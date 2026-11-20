@@ -121,7 +121,7 @@ function routeBox(){if(!ROUTE||!ROUTE.ids.length)return "";const bs=ROUTE.ids.ma
 // 一覧からまとめて選ぶ（SEL が null でないあいだは、カードを押すと選ぶ）
 let SEL=null;
 function selBar(){const el=$("#selbar");if(!SEL){if(el)el.remove();return}const n=SEL.size,have=ROUTE?ROUTE.ids.length:0;
- const sg=st.view==="map"&&SEL._sug?`<small class="sgn">黄色の輪＝近くのおすすめ${SEL._sug}件</small>`:"";const h=`<span>${n}件えらび中${have?`（ルートに${have}件）`:""}${sg}</span><button id="selCancel">やめる</button><button id="selGo" ${n?"":"disabled"}>${have?"ルートに入れる":"ルートを作る"}</button>`;
+ const sg=st.view==="map"&&SEL._sug?`<small class="sgn">黄色の輪＝近くのおすすめ${SEL._sug}件</small>`:"";const h=`<span>${n}件選択中${have?`（ルートに${have}件）`:""}${sg}</span><button id="selCancel">やめる</button><button id="selGo" ${n?"":"disabled"}>${have?"ルートに入れる":"ルートを作る"}</button>`;
  if(el)el.innerHTML=h;else{const d=document.createElement("div");d.id="selbar";d.className="selbar";d.innerHTML=h;document.body.appendChild(d)}}
 function routeAsk(){const n=myFavIds().length,m=filtered().filter(b=>b.lat!=null).length;
  $("#layer").innerHTML=`<div class="shade" id="shade"></div><div class="sheet" role="dialog" aria-label="今日のルート"><div class="in"><div class="grab"></div><b style="font-size:17px">🗺 どの物件でルートを作る？</b>

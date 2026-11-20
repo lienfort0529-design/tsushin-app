@@ -473,11 +473,12 @@ function openRoom(k){if(!ME)return askName(()=>openRoom(k));st.room=k;st.pick=nu
  <b style="font-size:18px">${no}号室</b> <span class="addr">${esc(b.name)}${b.tou.length>1?" "+esc(b.tou[st.t]):""}</span>
  <div class="btns">${PICK.map(s=>`<button class="${RES[s].c}" data-s="${s}" aria-pressed="false">${RES[s].l}</button>`).join("")}</div>
  <div id="custBox" class="cust" hidden><b>契約（カウンターの「獲得」と同じ）</b><label>申込日<input type="date" id="vdate" value="${new Date().toLocaleDateString("sv-SE")}"></label><label>商材<select id="vprod"><option value="">選んでください</option>${VS.products().map(p=>`<option ${p==="au光"?"selected":""}>${esc(p)}</option>`).join("")}</select></label><label>お客様名<input id="vcust" autocomplete="off"></label><div class="two"><label>セイ（カナ）<input id="vsei" autocomplete="off"></label><label>メイ（カナ）<input id="vmei" autocomplete="off"></label></div><div class="err" id="custErr"></div></div>
+ <button class="save" id="save" disabled>結果を選んでください</button>
+ <details class="rmore" ${DGR[k]?"open":""}><summary>その他（備考・⚠危険の印・次の部屋）${DGR[k]?'<span class="dgt">⚠印あり</span>':""}</summary>
  <button class="dgbtn" id="dgflag" aria-pressed="${!!DGR[k]}">${DGR[k]?`⚠危険 ${esc(DGR[k].d)} ${esc(DGR[k].w)}（タップで外す）`:"⚠危険の印を付ける（次の人への注意）"}</button>
  <label for="memo" class="addr">備考（任意）</label><textarea id="memo" placeholder="例：夜なら在宅、妻と相談"></textarea>
- <button class="save" id="save" disabled>結果を選んでください</button>
- <label class="auto"><input type="checkbox" id="auto" ${st.auto?"checked":""}>記録したら次の部屋をすぐ開く</label>
- <div class="addr" style="margin-top:14px">これまでの記録</div><ul class="hist">${h.length?h.map((x,i)=>[x,i]).reverse().map(([x,i])=>`<li>${chip(x.s)}<span class="who">${when(x)} ${esc(x.w)}</span><span>${esc(x.m||"")}${x.w===ME?` <button class="undo" data-del="${i}">取り消す</button>`:""}</span></li>`).join(""):'<li style="display:block;color:var(--sub)">まだ記録がありません</li>'}</ul>${h.length?"":`<button class="gonebtn" id="gonek">この部屋は存在しない（一覧から消す）</button>`}</div></div>`}
+ <label class="auto"><input type="checkbox" id="auto" ${st.auto?"checked":""}>記録したら次の部屋をすぐ開く</label></details>
+ ${(()=>{const li=([x,i])=>`<li>${chip(x.s)}<span class="who">${when(x)} ${esc(x.w)}</span><span>${esc(x.m||"")}${x.w===ME?` <button class="undo" data-del="${i}">取り消す</button>`:""}</span></li>`;const r=h.map((x,i)=>[x,i]).reverse();if(!r.length)return `<div class="addr" style="margin-top:14px">これまでの記録</div><ul class="hist"><li style="display:block;color:var(--sub)">まだ記録がありません</li></ul>`;return `<div class="addr" style="margin-top:14px">前回の記録</div><ul class="hist">${li(r[0])}</ul>${r.length>1?`<details class="rmore"><summary>これまでの記録（全${r.length}件）</summary><ul class="hist">${r.slice(1).map(li).join("")}</ul></details>`:""}`})()}${h.length?"":`<button class="gonebtn" id="gonek">この部屋は存在しない（一覧から消す）</button>`}</div></div>`}
 // ===== マス目・リストの部屋を長押し → 結果を1タップで記録（契約は入力が要るので通常の画面で）=====
 const LP={tm:0,done:false};
 function quickMenu(k){if(!ME)return askName(()=>quickMenu(k));st.qk=k;const no=k.split("-").pop(),b=BY[k.split("#")[0]];

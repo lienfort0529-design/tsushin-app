@@ -19,6 +19,10 @@ const VISIT_MEMO_HEAD = ['物件ID', '内容（JSON）', '更新日時', '名前
 // 危険の印の列：A部屋のキー B付けた人 C日時 Dメモ（印を外すと行を消す）
 const VISIT_DANGER_HEAD = ['部屋のキー', '付けた人', '日時', 'メモ'];
 // 直してほしい（アプリの「🛠 直してほしい」から。不具合・要望）：A日時 B名前 C種類 D内容 E画面 F端末 G直前のエラー H ID I対応（管理者が書く）
+// ★気になる（だれがどの物件を気にしているか）：A物件ID B名前 C日時
+const VISIT_FAV_SHEET = '気になる', VISIT_FAV_HEAD = ['物件ID', '名前', '日時'];
+// 今日のルート（ほかの人と被らないように共有）：A名前 B物件ID(JSON) C更新日時 Dその日(toDateString)。1人1行（部屋の形・自社メモと同じ置き換え）
+const VISIT_ROUTE_SHEET = '今日のルート', VISIT_ROUTE_HEAD = ['名前', '物件ID（JSON）', '更新日時', 'その日'];
 const FEEDBACK_SHEET = '直してほしい', FEEDBACK_HEAD = ['日時', '名前', '種類', '内容', '画面', '端末', '直前のエラー', 'ID', '対応'];
 const FEEDBACK_KINDS = ['動かない', '使いにくい', 'こうしてほしい', 'その他'];
 
@@ -47,7 +51,7 @@ function visitClear_() { CacheService.getScriptCache().put('visitVer', String(Da
 function visitPull() {
   const cache = CacheService.getScriptCache(), k = 'visit_' + (cache.get('visitVer') || '0'), hit = cache.get(k);
   if (hit) return JSON.parse(hit);
-  const ss = ss_(), out = { recs: [], lays: {}, memos: {}, danger: {} };
+  const ss = ss_(), out = { recs: [], lays: {}, memos: {}, danger: {}, favs: {}, routes: {} };
   visitRows_(visitSheet_(ss, VISIT_LOG_SHEET, VISIT_LOG_HEAD), VISIT_LOG_HEAD.length).forEach(v => {
     if (!(v[0] instanceof Date) || v[9] !== '') return;
     out.recs.push([v[0].getTime(), String(v[2]), v[3] + '#' + v[4] + '-' + v[5], String(v[6]), String(v[7]), String(v[8])]);
@@ -58,6 +62,13 @@ function visitPull() {
   visitRows_(visitSheet_(ss, VISIT_MEMO_SHEET, VISIT_MEMO_HEAD), 2).forEach(v => { const o = json_(v[1]); if (v[0] && o) out.memos[v[0]] = o; });
   visitRows_(visitSheet_(ss, VISIT_DANGER_SHEET, VISIT_DANGER_HEAD), 4).forEach(v => {
     if (v[0]) out.danger[v[0]] = { w: String(v[1]), t: v[2] instanceof Date ? v[2].getTime() : 0, m: String(v[3]) };
+  });
+  visitRows_(visitSheet_(ss, VISIT_FAV_SHEET, VISIT_FAV_HEAD), 3).forEach(v => {
+    if (v[0] && v[1]) (out.favs[v[0]] = out.favs[v[0]] || {})[String(v[1])] = v[2] instanceof Date ? v[2].getTime() : 0;
+  });
+  visitRows_(visitSheet_(ss, VISIT_ROUTE_SHEET, VISIT_ROUTE_HEAD), 4).forEach(v => {
+    const ids = json_(v[1]);
+    if (v[0] && Array.isArray(ids)) out.routes[String(v[0])] = { d: String(v[3]), ids: ids };
   });
   const json = JSON.stringify(out);
   if (json.length < 90000) cache.put(k, json, 300);
@@ -70,6 +81,8 @@ function visitPull() {
 //   {op:'lay',   id, name, ts, key, lay}           棟の部屋の形（lay が null なら消す）
 //   {op:'memo',  id, name, ts, bid, memo}          自社メモ（物件ごとに丸ごと置き換え）
 //   {op:'dgr',   id, name, ts, key, on, memo}      ⚠危険の印を付ける（on:true）／外す（on:false）
+//   {op:'route', id, name, ts, d, ids}             今日のルート（1人1行で置き換え。ids が空なら消す）
+//   {op:'fav',   id, name, ts, bid, on}            ★気になるを付ける（on:true）／外す（on:false）。「気になる」シートに1人1行
 //   {op:'fb',    id, name, ts, kind, text, where, ua, err}  直してほしい（「直してほしい」シートに1行。同じ id は二重に入れない）
 // 部屋の形・自社メモは、シートの方が新しければ上書きしない（電波が戻ったときに古い内容で消さないため）
 // 返すもの：{ids: 受け取った id, data: visitPull() と同じもの}
@@ -106,6 +119,10 @@ function visitPush(ops) {
         if (BID_RE.test(o.bid) && o.memo && typeof o.memo === 'object') upsert(VISIT_MEMO_SHEET, VISIT_MEMO_HEAD, o.bid, JSON.stringify(o.memo), ts, name);
       } else if (o.op === 'dgr') {
         if (ROOM_KEY_RE.test(o.key)) visitDanger_(ss, o.key, !!o.on, name, ts, String(o.memo || '').slice(0, 500));
+      } else if (o.op === 'fav') {
+        if (BID_RE.test(o.bid) && name) visitFav_(ss, String(o.bid), name, !!o.on, ts);
+      } else if (o.op === 'route') {
+        if (name) upsert(VISIT_ROUTE_SHEET, VISIT_ROUTE_HEAD, name, Array.isArray(o.ids) && o.ids.length ? JSON.stringify(o.ids.slice(0, 20).map(Number)) : null, ts, String(o.d || '').slice(0, 20));
       } else if (o.op === 'fb') {
         visitFeedback_(ss, o, name, ts);
       }
@@ -135,6 +152,14 @@ function visitUpsert_(ss) {
     if (i >= 0) { sh.getRange(i + 2, 1, 1, 4).setValues([v]); rows[sheet][i] = v; }
     else { sh.getRange(sh.getLastRow() + 1, 1, 1, 4).setValues([v]); rows[sheet].push(v); }
   };
+}
+
+// ★気になるを付ける（同じ人・同じ物件は1行だけ）／外す
+function visitFav_(ss, bid, name, on, ts) {
+  const sh = visitSheet_(ss, VISIT_FAV_SHEET, VISIT_FAV_HEAD), rows = visitRows_(sh, 3);
+  const i = rows.findIndex(v => String(v[0]) === bid && String(v[1]) === name);
+  if (on && i < 0) sh.getRange(sh.getLastRow() + 1, 1, 1, 3).setValues([[bid, name, new Date(ts)]]);
+  if (!on && i >= 0) sh.deleteRow(i + 2);
 }
 
 function visitDanger_(ss, key, on, name, ts, memo) {

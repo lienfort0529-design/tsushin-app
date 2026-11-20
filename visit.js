@@ -324,7 +324,7 @@ function setupForm(b){const lab=b.tou[st.t]||"";const z=sizeOf(b);
  <div class="row"><label>階数<input id="lf" type="number" inputmode="numeric" min="1" max="60" value="${z.kai||5}"></label><label>1フロアの戸数<input id="lp" type="number" inputmode="numeric" min="1" max="40" value="${z.per||4}"></label></div>
  <button class="save" id="mk">部屋を作る</button></div>`}
 function bHist(b){const out=[];b.tou.forEach((t,ti)=>{Object.keys(H).forEach(k=>{if(!k.startsWith(b.id+"#"+ti+"-"))return;H[k].forEach(h=>out.push({...h,room:k.split("-").pop(),tou:b.tou.length>1?t:""}))})});return out.sort((x,y)=>(y.t||0)-(x.t||0))}
-function detail(){const b=BY[st.b];if(RECENT[0]!==b.id){const i=RECENT.indexOf(b.id);if(i>=0)RECENT.splice(i,1);RECENT.unshift(b.id);if(RECENT.length>10)RECENT.length=10;save("au_recent",RECENT)}if(st.t>=b.tou.length)st.t=0;
+function detail(){const b=BY[st.b];if(RECENT[0]!==b.id){const i=RECENT.indexOf(b.id);if(i>=0)RECENT.splice(i,1);RECENT.unshift(b.id);if(RECENT.length>5)RECENT.length=5;save("au_recent",RECENT)}if(st.t>=b.tou.length)st.t=0;
  const ks=rooms(b,st.t),lay=LAY[tk(b,st.t)],c=stats(allRooms(b));
  let body="";
  if(!lay)body=setupForm(b);
@@ -392,7 +392,7 @@ function my(){if(!ME)return `<div class="note"><b>名前が選ばれていませ
  // 自分が回った物件（新しい順）
  const byB={};R.forEach(h=>{const x=byB[h.b.id]||(byB[h.b.id]={b:h.b,t:0,rooms:new Set(),ok:0,kn:0});x.t=Math.max(x.t,h.t||0);x.rooms.add(h.tou+"-"+h.room);if(h.s==="ok")x.ok++;if(h.s==="kn")x.kn++});
  const went=Object.values(byB).sort((a,b)=>b.t-a.t);
- const favs=myFavIds().map(id=>BY[+id]).filter(Boolean),rec=RECENT.map(id=>BY[id]).filter(Boolean);
+ const favs=myFavIds().map(id=>BY[+id]).filter(Boolean),rec=RECENT.slice(0,5).map(id=>BY[id]).filter(Boolean);
  // 見たいときに開く（開いた状態はこの画面のあいだ覚えておく）
  const sec=(title,n,body,empty)=>{const id=title.replace(/[^\p{L}\p{N}]/gu,"").slice(0,12);return `<details class="mysec" data-sec="${esc(id)}" ${MYOPEN.has(id)?"open":""}><summary><span class="myh">${title}${n?` <span class="myn">${n}</span>`:""}</span></summary>${n?body:`<p class="lead">${empty}</p>`}</details>`};
  const ago=t=>{const d=Math.floor((Date.now()-t)/864e5);return d<=0?"今日":d+"日前"};

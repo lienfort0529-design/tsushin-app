@@ -99,14 +99,18 @@ function routeToggle(id){id=+id;const b=BY[id];if(!b||b.lat==null)return toast("
  ROUTE={d:new Date().toDateString(),ids:orderByTime(ids.map(x=>BY[x]).filter(Boolean),from),from,pick:true};save("au_route",ROUTE);
  const c=inRoute(id)&&clashTxt(b);toast(inRoute(id)?(c?"⚠ "+c:"ルートに入れました（"+ROUTE.ids.length+"件・順番を組み直しました）"):"ルートから外しました")}
 // ルートのついでに寄れそうな物件（ルートの物件から400m以内・まだの部屋が多い・ほかの人と被らない・今の時間に合う）
-function routeSuggest(){if(!ROUTE||!ROUTE.ids.length||ROUTE.ids.length>=10)return [];const rs=ROUTE.ids.map(id=>BY[id]).filter(b=>b&&b.lat!=null);if(!rs.length)return [];
+function routeSuggest(base,max){const bi=base||(ROUTE?ROUTE.ids:[]);if(!bi.length||(!base&&bi.length>=10))return [];const rs=bi.map(id=>BY[id]).filter(b=>b&&b.lat!=null);if(!rs.length)return [];
  const BO=["朝","昼","夜"],nb=band3(Date.now()),out=[];
- VIS().forEach(b=>{if(b.lat==null||ROUTE.ids.includes(b.id)||b.kind==="d"&&(st.src||"t")==="t")return;let d=1e9,ni=0;rs.forEach((x,i)=>{const k=kmAB([x.lat,x.lng],[b.lat,b.lng]);if(k<d){d=k;ni=i}});if(d>0.4)return;
+ VIS().forEach(b=>{if(b.lat==null||bi.includes(b.id)||b.kind==="d"&&(st.src||"t")==="t")return;let d=1e9,ni=0;rs.forEach((x,i)=>{const k=kmAB([x.lat,x.lng],[b.lat,b.lng]);if(k<d){d=k;ni=i}});if(d>0.4)return;
   if(routeWho(b.id).length||Object.keys(todayWho(b)).length)return;const L=leftOf(b);if(L.p<.5)return;
   const t=bestBand(b),fit=t.b===nb,past=t.b&&BO.indexOf(t.b)<BO.indexOf(nb);if(past)return;
   const why=[dtxt(d)+"・"+(ni+1)+"番の近く"];if(L.n)why.push("まだ"+(L.est?"約":"")+L.n+(L.est?"戸":"部屋"));if(fit)why.push(t.b+"に会いやすい（"+t.why+"）");
   out.push({b,why:why.join("・"),sc:(fit?3:0)+Math.min(3,(L.n||10)/20)-d*4+(isFav(b.id)?2:0)})});
- return out.sort((a,c)=>c.sc-a.sc).slice(0,3)}
+ return out.sort((a,c)=>c.sc-a.sc).slice(0,max||3)}
+// 地図から選ぶとき：選んだ物件（＋今のルート）の近くのおすすめを黄色の輪で出す
+let SUGL=null;function drawSug(){if(!MAP||!SEL)return;if(SUGL){SUGL.remove();SUGL=null}const base=[...new Set((ROUTE?ROUTE.ids:[]).concat([...SEL]))];const g=routeSuggest(base,5);SEL._sug=g.length;
+ SUGL=L.layerGroup(g.map(x=>L.circleMarker([x.b.lat,x.b.lng],{radius:16,color:"#f59f00",weight:3,dashArray:"4 4",fill:false,interactive:false}))).addTo(MAP);
+ g.forEach(x=>L.marker([x.b.lat,x.b.lng],{icon:L.divIcon({className:"sugtag",html:"📌",iconSize:[18,18],iconAnchor:[-6,22]}),interactive:false}).addTo(SUGL))}
 function routeBox(){if(!ROUTE||!ROUTE.ids.length)return "";const bs=ROUTE.ids.map(id=>BY[id]).filter(Boolean);let prev=ROUTE.from;
  const rows=bs.map((b,i)=>{const d=b.lat!=null&&prev?kmAB(prev,[b.lat,b.lng]):null;if(b.lat!=null)prev=[b.lat,b.lng];const done=Object.keys(todayWho(b)).includes(ME);
   return `<div class="rwrap"><button class="rrow ${done?"done":""}" data-b="${b.id}"><span class="rn">${done?"✓":i+1}</span><span class="rb"><b>${esc(b.name)}</b>${(()=>{const c=clashTxt(b);return c?`<small class="clash">⚠ ${esc(c)}</small>`:""})()}<small>${(()=>{const t=bestBand(b);if(!t.b)return "";const BO=["朝","昼","夜"],past=BO.indexOf(t.b)<BO.indexOf(band3(Date.now()));return `<em class="rt ${past?"past":""}">${past?"今日はもう時間外・"+t.b+"がおすすめ":t.b+"がおすすめ"}（${t.why}）</em> `})()}${esc(b.addr)}</small></span><span class="rd">${d!=null?dtxt(d):""}</span></button><button class="rx" data-rt="${b.id}" aria-label="ルートから外す">×</button></div>`}).join("");
@@ -117,7 +121,7 @@ function routeBox(){if(!ROUTE||!ROUTE.ids.length)return "";const bs=ROUTE.ids.ma
 // 一覧からまとめて選ぶ（SEL が null でないあいだは、カードを押すと選ぶ）
 let SEL=null;
 function selBar(){const el=$("#selbar");if(!SEL){if(el)el.remove();return}const n=SEL.size,have=ROUTE?ROUTE.ids.length:0;
- const h=`<span>${n}件えらび中${have?`（ルートに${have}件）`:""}</span><button id="selCancel">やめる</button><button id="selGo" ${n?"":"disabled"}>${have?"ルートに入れる":"ルートを作る"}</button>`;
+ const sg=st.view==="map"&&SEL._sug?`<small class="sgn">📌近くのおすすめ${SEL._sug}件（黄色の輪）</small>`:"";const h=`<span>${n}件えらび中${have?`（ルートに${have}件）`:""}${sg}</span><button id="selCancel">やめる</button><button id="selGo" ${n?"":"disabled"}>${have?"ルートに入れる":"ルートを作る"}</button>`;
  if(el)el.innerHTML=h;else{const d=document.createElement("div");d.id="selbar";d.className="selbar";d.innerHTML=h;document.body.appendChild(d)}}
 function routeAsk(){const n=myFavIds().length,m=filtered().filter(b=>b.lat!=null).length;
  $("#layer").innerHTML=`<div class="shade" id="shade"></div><div class="sheet" role="dialog" aria-label="今日のルート"><div class="in"><div class="grab"></div><b style="font-size:17px">🗺 どの物件でルートを作る？</b>
@@ -172,12 +176,12 @@ function drawMap(){const el=$("#map");if(!el||!window.L)return;if(MAP){MAP.remov
   const r0=Math.min(12,5+Math.sqrt(b.nt)),sty=on=>({radius:r0+(on?4:0),color:on?"#2f9e44":"#fff",weight:on?4:1.5});
   const mk=L.circleMarker([b.lat,b.lng],Object.assign({fillColor:col,fillOpacity:.9},sty(SEL&&SEL.has(b.id)))).addTo(MAP);
   // 地図から選ぶモード：押すたびに選ぶ／外す（ふきだしは出さない）
-  if(SEL){mk.on("click",()=>{if(SEL.has(b.id))SEL.delete(b.id);else SEL.add(b.id);const x=sty(SEL.has(b.id));mk.setStyle(x);mk.setRadius(x.radius);selBar();toast((SEL.has(b.id)?"選びました：":"外しました：")+b.name)});pts.push([b.lat,b.lng]);return}
+  if(SEL){mk.on("click",()=>{if(SEL.has(b.id))SEL.delete(b.id);else SEL.add(b.id);const x=sty(SEL.has(b.id));mk.setStyle(x);mk.setRadius(x.radius);drawSug();selBar();toast((SEL.has(b.id)?"選びました：":"外しました：")+b.name)});pts.push([b.lat,b.lng]);return}
   mk.bindPopup(`<b>${esc(b.name)}</b><br>${esc(b.addr)}${b.nt>1?"・"+b.nt+"棟":""}${roomTxt(b)&&(ROLE==="own"||isPub(b))?"<br>🏠 "+esc(roomTxt(b)):""}${st.pos?"<br>現在地から "+dtxt(km(b)):""}<button class="pop" data-b="${b.id}">この物件を開く</button>${(()=>{const c=clashTxt(b);return c?`<div class="clash" style="margin-top:6px">⚠ ${esc(c)}</div>`:""})()}<button class="pop rt ${inRoute(b.id)?"on":""}" data-rt="${b.id}">${inRoute(b.id)?"✓ ルートに入っています（外す）":"＋ 今日のルートに入れる"}</button><a class="gm" href="https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}" target="_blank" rel="noopener">Googleマップで道案内</a>`);pts.push([b.lat,b.lng])});
  a.forEach(b=>{if(Object.keys(todayWho(b)).length)L.circleMarker([b.lat,b.lng],{radius:Math.min(12,5+Math.sqrt(b.nt))+5,color:"#7048e8",weight:3,fill:false,interactive:false}).addTo(MAP)});
  if(ROUTE&&ROUTE.ids.length){const rp=[ROUTE.from].concat(ROUTE.ids.map(id=>BY[id]).filter(b=>b&&b.lat!=null).map(b=>[b.lat,b.lng]));L.polyline(rp,{color:"#e8590c",weight:3,dashArray:"6 6"}).addTo(MAP);
   ROUTE.ids.map(id=>BY[id]).filter(b=>b&&b.lat!=null).forEach((b,i)=>L.marker([b.lat,b.lng],{icon:L.divIcon({className:"rnum",html:String(i+1),iconSize:[22,22]})}).addTo(MAP).on("click",()=>{st.b=b.id;st.t=0;render()}))}
- const mv=st.mapView;st.mapView=null;
+ const mv=st.mapView;st.mapView=null;if(SEL)setTimeout(()=>{drawSug();selBar()},0);
  if(st.pos){L.circleMarker(st.pos,{radius:8,color:"#fff",weight:3,fillColor:"#2f9e44",fillOpacity:1}).addTo(MAP);if(!mv)MAP.setView(st.pos,15)}
  if(mv){MAP.setView(mv.c,mv.z);return}
  else if(pts.length)MAP.fitBounds(pts,{padding:[20,20],maxZoom:16});else MAP.setView([34.69,135.5],10)}

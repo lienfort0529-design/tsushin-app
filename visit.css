@@ -234,3 +234,9 @@ header{background:var(--ink);color:#fff;border:0;box-shadow:inset 0 -3px 0 var(-
 .hd .vt,.vtag,.vfb{white-space:nowrap}
 .hd .vt{min-width:0}
 @media (max-width:420px){.hd{gap:7px}.hd .mk{width:26px;height:26px}.hd .vt{font-size:15px;gap:5px}.vtag{font-size:10px;padding:1px 5px}.vfb{padding:5px 9px;font-size:11px}.vme{max-width:5.5em;padding:5px 9px;font-size:12px}}
+
+/* auひかりのタイプ（V／G） */
+.tyrow{margin-top:4px;font-size:13px;color:var(--sub)}
+.tyrow b{color:var(--fg)}
+.ty-V{color:#1d4f80}.ty-G{color:#8a5a00}.ty-VG{color:#4b3a8a}
+.tag.ty{background:#eef3f9;font-weight:700}.tag.ty-G{background:#fff4d6}.tag.ty-VG{background:#efeaf9}

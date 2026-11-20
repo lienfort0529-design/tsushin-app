@@ -131,7 +131,7 @@ function routeAsk(){const n=myFavIds().length,m=filtered().filter(b=>b.lat!=null
 function startRoute(fav){$("#layer").innerHTML="";if(!navigator.geolocation){const c=st.city&&cityCenter();return c?makeRoute(c,fav):toast("市区町村を選ぶと、その中心からルートを作れます")}toast("現在地を取得中…");navigator.geolocation.getCurrentPosition(p=>makeRoute([p.coords.latitude,p.coords.longitude],fav),()=>{const c=st.city&&cityCenter()||(fav&&(()=>{const b=BY[+myFavIds()[0]];return b&&b.lat!=null?[b.lat,b.lng]:null})());if(c){toast("現在地が使えないので、"+(st.city&&cityCenter()?st.city+"の中心":"★の1件目")+"から作ります");makeRoute(c,fav)}else toast("現在地が使えません。市区町村を選んでからもう一度押してください")},{enableHighAccuracy:true,timeout:15000,maximumAge:60000})}
 // ===== 今日の自分の成績（一覧の上）=====
 function myToday(){if(!ME)return "";const R=allRecs().filter(h=>h.w===ME&&isToday(h.t));const t=R.filter(h=>TALK.includes(h.s)).length,ok=R.filter(h=>h.s==="ok").length,kn=R.filter(h=>h.s==="kn").length;
- return `<div class="mytoday"><span>今日の自分</span><b>${R.length}</b>訪問<b>${t}</b>話せた<b>${kn}</b>検討<b>${ok}</b>獲得</div>`}
+ return `<button class="mytoday2" data-gomy="1">今日 <b>${R.length}</b>訪問・<b>${t}</b>話せた・<b>${kn}</b>検討・<b>${ok}</b>獲得<span>›</span></button>`}
 // ===== 再訪おすすめ（今の時間なら会えそう）=====
 const band3=t=>{const h=new Date(t).getHours();return h<12?"朝":h<17?"昼":"夜"};
 const wk=t=>{const d=new Date(t).getDay();return d===0||d===6?"土日":"平日"};
@@ -383,7 +383,7 @@ function toggleFav(id){if(!ME)return askName(()=>{toggleFav(id);render()});const
 (()=>{const old=load("au_fav",null);if(!old||!ME)return;let ch=false;Object.keys(old).forEach(id=>{if(!(FAVS[id]&&FAVS[id][ME])){FAVS[id]=Object.assign({},FAVS[id]||{},{[ME]:old[id]});ch=true}});if(ch)save("au_favs",FAVS);try{localStorage.removeItem("hkV_au_fav")}catch(e){}})();
 function my(){if(!ME)return `<div class="note"><b>名前が選ばれていません</b>通信インフラの画面で名前を選ぶと、自分の記録が出ます。<div style="margin-top:8px"><a class="chg" href="./">名前を選ぶ</a></div></div>`;
  const R=allRecs().filter(h=>h.w===ME),now=new Date(),m0=new Date(now.getFullYear(),now.getMonth(),1).getTime(),td=now.toDateString();
- const sum=a=>({v:a.length,kn:a.filter(h=>h.s==="kn").length,ok:a.filter(h=>h.s==="ok").length});
+ const sum=a=>({v:a.length,t:a.filter(h=>TALK.includes(h.s)).length,kn:a.filter(h=>h.s==="kn").length,ok:a.filter(h=>h.s==="ok").length});
  const T=sum(R.filter(h=>h.t&&new Date(h.t).toDateString()===td)),M=sum(R.filter(h=>(h.t||0)>=m0));
  // 自分の検討：その部屋のいちばん新しい記録が、自分の「検討」
  const kn=[];Object.keys(H).forEach(k=>{const l=last(k),b=BY[+k.split("#")[0]];if(l&&l.s==="kn"&&l.w===ME&&b)kn.push({k,b,l,no:k.split("-").pop(),tou:b.tou.length>1?b.tou[+k.split("#")[1].split("-")[0]]:""})});kn.sort((a,b)=>(a.l.t||0)-(b.l.t||0));
@@ -394,7 +394,7 @@ function my(){if(!ME)return `<div class="note"><b>名前が選ばれていませ
  // 見たいときに開く（開いた状態はこの画面のあいだ覚えておく）
  const sec=(title,n,body,empty)=>{const id=title.replace(/[^\p{L}\p{N}]/gu,"").slice(0,12);return `<details class="mysec" data-sec="${esc(id)}" ${MYOPEN.has(id)?"open":""}><summary><span class="myh">${title}${n?` <span class="myn">${n}</span>`:""}</span></summary>${n?body:`<p class="lead">${empty}</p>`}</details>`};
  const ago=t=>{const d=Math.floor((Date.now()-t)/864e5);return d<=0?"今日":d+"日前"};
- return `<div class="mytop"><b>${esc(ME)} さん</b><div class="mystat"><div><span>今日</span><b>${T.v}</b>部屋<small>検討 ${T.kn}・契約 ${T.ok}</small></div><div><span>今月</span><b>${M.v}</b>部屋<small>検討 ${M.kn}・契約 ${M.ok}</small></div></div></div>`
+ return `<div class="mytop"><b>${esc(ME)} さん</b><div class="mystat"><div><span>今日</span><b>${T.v}</b>訪問<small>話せた ${T.t}・検討 ${T.kn}・獲得 ${T.ok}</small></div><div><span>今月</span><b>${M.v}</b>訪問<small>話せた ${M.t}・検討 ${M.kn}・獲得 ${M.ok}</small></div></div></div>`
  +(()=>{// もう一度行く部屋：「今の時間なら会えそう」（全員の不在・検討から）＋自分の検討。会えそうなものを上に
   const r=revisit(),seen=new Set(r.map(x=>x.k));const all=r.map(x=>Object.assign({now:true},x)).concat(kn.filter(x=>!seen.has(x.k)).map(x=>Object.assign({now:false,why:"自分の検討"},x)));
   return sec("🔁 もう一度行く部屋",all.length,`<div class="small" style="margin:-2px 0 8px">⏰＝今（${wk(Date.now())}の${band3(Date.now())}）なら会えそうな部屋。上から順に回るのがおすすめです。</div><div class="list">${all.slice(0,30).map(x=>`<button class="bcard" data-b="${x.b.id}"><div class="top"><b>${x.now?"⏰ ":""}${esc(x.b.name)}</b><span class="tag">${esc(x.tou?x.tou+" ":"")}${esc(x.no)}号室</span>${chip(x.l.s)}</div><div class="nums">${esc(x.why)}／最後 ${when(x.l)} ${esc(x.l.w)}${x.l.m?"「"+esc(x.l.m)+"」":""}</div></button>`).join("")}</div>`,"もう一度行く部屋はありません（不在・検討の部屋がここに出てきます）。")})()
@@ -525,6 +525,7 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
  if(t.id==="dopub"){const d=new Date();PUB[t.dataset.id]=(d.getMonth()+1)+"/"+d.getDate();save("au_pub",PUB);closeRoom();render();return toast("公開しました（Dropboxに記載）")}
  if(t.dataset.unpub){delete PUB[t.dataset.unpub];save("au_pub",PUB);render();return toast("自社のみに戻しました")}
  if(t.dataset.view){st.view=t.dataset.view;keep();return render()}
+ if(t.dataset.gomy){if(SEL){SEL=null;selBar()}st.v="my";st.b=null;render();pushH&&pushH();return}
  if(t.dataset.trnow!==undefined){const k=t.dataset.trnow;st.adv=Object.assign(ADV(),{trs:k?[k]:[]});st.lim=50;keep();render();return toast(k?trNow()[1]:"🕒の条件を外しました")}
  if(t.dataset.tr&&st.b){st.trOpen=true;setTr(st.b,t.dataset.tr);const y=scrollY;render();scrollTo(0,y);return}
  if(t.dataset.fav){toggleFav(t.dataset.fav);const y=scrollY;render();scrollTo(0,y);return toast(isFav(t.dataset.fav)?"★ 気になるに入れました":"気になるから外しました")}

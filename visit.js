@@ -98,12 +98,22 @@ function routeToggle(id){id=+id;const b=BY[id];if(!b||b.lat==null)return toast("
  const from=ROUTE&&ROUTE.from||st.pos||[BY[ids[0]].lat,BY[ids[0]].lng];
  ROUTE={d:new Date().toDateString(),ids:orderByTime(ids.map(x=>BY[x]).filter(Boolean),from),from,pick:true};save("au_route",ROUTE);
  const c=inRoute(id)&&clashTxt(b);toast(inRoute(id)?(c?"⚠ "+c:"ルートに入れました（"+ROUTE.ids.length+"件・順番を組み直しました）"):"ルートから外しました")}
+// ルートのついでに寄れそうな物件（ルートの物件から400m以内・まだの部屋が多い・ほかの人と被らない・今の時間に合う）
+function routeSuggest(){if(!ROUTE||!ROUTE.ids.length||ROUTE.ids.length>=10)return [];const rs=ROUTE.ids.map(id=>BY[id]).filter(b=>b&&b.lat!=null);if(!rs.length)return [];
+ const BO=["朝","昼","夜"],nb=band3(Date.now()),out=[];
+ VIS().forEach(b=>{if(b.lat==null||ROUTE.ids.includes(b.id)||b.kind==="d"&&(st.src||"t")==="t")return;let d=1e9,ni=0;rs.forEach((x,i)=>{const k=kmAB([x.lat,x.lng],[b.lat,b.lng]);if(k<d){d=k;ni=i}});if(d>0.4)return;
+  if(routeWho(b.id).length||Object.keys(todayWho(b)).length)return;const L=leftOf(b);if(L.p<.5)return;
+  const t=bestBand(b),fit=t.b===nb,past=t.b&&BO.indexOf(t.b)<BO.indexOf(nb);if(past)return;
+  const why=[dtxt(d)+"・"+(ni+1)+"番の近く"];if(L.n)why.push("まだ"+(L.est?"約":"")+L.n+(L.est?"戸":"部屋"));if(fit)why.push(t.b+"に会いやすい（"+t.why+"）");
+  out.push({b,why:why.join("・"),sc:(fit?3:0)+Math.min(3,(L.n||10)/20)-d*4+(isFav(b.id)?2:0)})});
+ return out.sort((a,c)=>c.sc-a.sc).slice(0,3)}
 function routeBox(){if(!ROUTE||!ROUTE.ids.length)return "";const bs=ROUTE.ids.map(id=>BY[id]).filter(Boolean);let prev=ROUTE.from;
  const rows=bs.map((b,i)=>{const d=b.lat!=null&&prev?kmAB(prev,[b.lat,b.lng]):null;if(b.lat!=null)prev=[b.lat,b.lng];const done=Object.keys(todayWho(b)).includes(ME);
   return `<div class="rwrap"><button class="rrow ${done?"done":""}" data-b="${b.id}"><span class="rn">${done?"✓":i+1}</span><span class="rb"><b>${esc(b.name)}</b>${(()=>{const c=clashTxt(b);return c?`<small class="clash">⚠ ${esc(c)}</small>`:""})()}<small>${(()=>{const t=bestBand(b);if(!t.b)return "";const BO=["朝","昼","夜"],past=BO.indexOf(t.b)<BO.indexOf(band3(Date.now()));return `<em class="rt ${past?"past":""}">${past?"今日はもう時間外・"+t.b+"がおすすめ":t.b+"がおすすめ"}（${t.why}）</em> `})()}${esc(b.addr)}</small></span><span class="rd">${d!=null?dtxt(d):""}</span></button><button class="rx" data-rt="${b.id}" aria-label="ルートから外す">×</button></div>`}).join("");
  const wp=bs.filter(b=>b.lat!=null);const url=wp.length?`https://www.google.com/maps/dir/?api=1&origin=${ROUTE.from[0]},${ROUTE.from[1]}&destination=${wp[wp.length-1].lat},${wp[wp.length-1].lng}${wp.length>1?"&waypoints="+wp.slice(0,-1).map(b=>b.lat+","+b.lng).join("|"):""}&travelmode=walking`:"";
  const nx=bs.find(b=>!Object.keys(todayWho(b)).includes(ME));
- return `<details class="route" ${st.rOpen!==false?"open":""} id="rdet"><summary class="rh"><b>🗺 今日のルート（${ROUTE.fav?"★":ROUTE.pick?"選んだ":""}${bs.length}件）</b>${nx?`<span class="rnext">次：${esc(nx.name)}</span>`:`<span class="rnext">全部回りました</span>`}<button id="routeClr">消す</button></summary>${rows}${url?`<a class="rgo" href="${url}" data-gm="${esc(wp.map(b=>b.lat+","+b.lng).join("|"))}" target="_blank" rel="noopener">Googleマップアプリで順番に案内（徒歩）</a>`:""}<div class="rfoot"><button class="rbtn3" id="selMap">📍 地図から足す</button><button class="rbtn3" id="selMode">☑ 一覧から足す</button><button class="rbtn3" id="routeMk">作り直す</button></div></details>`}
+ return `<details class="route" ${st.rOpen!==false?"open":""} id="rdet"><summary class="rh"><b>🗺 今日のルート（${ROUTE.fav?"★":ROUTE.pick?"選んだ":""}${bs.length}件）</b>${nx?`<span class="rnext">次：${esc(nx.name)}</span>`:`<span class="rnext">全部回りました</span>`}<button id="routeClr">消す</button></summary>${rows}${url?`<a class="rgo" href="${url}" data-gm="${esc(wp.map(b=>b.lat+","+b.lng).join("|"))}" target="_blank" rel="noopener">Googleマップアプリで順番に案内（徒歩）</a>`:""}${(()=>{const g=routeSuggest();return g.length?`<div class="rsug"><div class="rsh">📌 ここも寄れそう</div>${g.map(x=>`<div class="rsr"><button class="rsb" data-b="${x.b.id}"><b>${esc(x.b.name)}</b><small>${esc(x.why)}</small></button><button class="rsa" data-rt="${x.b.id}">＋入れる</button></div>`).join("")}</div>`:""})()}
+ <div class="rfoot"><button class="rbtn3" id="selMap">📍 地図から足す</button><button class="rbtn3" id="selMode">☑ 一覧から足す</button><button class="rbtn3" id="routeMk">作り直す</button></div></details>`}
 // 一覧からまとめて選ぶ（SEL が null でないあいだは、カードを押すと選ぶ）
 let SEL=null;
 function selBar(){const el=$("#selbar");if(!SEL){if(el)el.remove();return}const n=SEL.size,have=ROUTE?ROUTE.ids.length:0;

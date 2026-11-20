@@ -120,7 +120,7 @@ function list(){const a=filtered();const hc=st.near&&st.pos?hereCity():"";
  ${hc?`<div class="here"><span>${st.posCity?"基準":"いまいる場所"}：<b>${st.posCity?st.city+"の中心":hc}</b></span>${st.city!==hc?`<button data-city="${hc}">${hc}だけ見る</button>`:""}</div>`:""}
  <input class="search" id="q" type="search" enterkeyhint="search" placeholder="物件名・住所・メモで検索（例：大正区 1DK）" value="${esc(st.q)}">
  <select class="sel" id="city" aria-label="市区町村"><option value="">大阪府すべて（${VIS().length.toLocaleString()}件）</option>${CITIES.map(c=>`<option value="${esc(c)}" ${c===st.city?"selected":""}>${esc(c)}（${CITY_N[c].toLocaleString()}）</option>`).join("")}</select>
- <div class="seg" style="margin-top:10px">${[["t","Dropboxに無い（ねらい目）"],["d","Dropboxにある"],["a","すべて"]].map(([k,l])=>`<button data-src="${k}" aria-pressed="${(st.src||"t")===k}">${l}</button>`).join("")}</div>
+ <div class="seg" style="margin-top:10px">${[["t","自社だけの物件"],["d","Dropboxにある"],["a","すべて"]].map(([k,l])=>`<button data-src="${k}" aria-pressed="${(st.src||"t")===k}">${l}</button>`).join("")}</div>
  <div class="chips">${F.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${st.f===k}">${l}</button>`).join("")}</div>
  <div class="chips" style="margin-top:-4px">${MG.map(([k,l])=>`<button class="chip" data-mg="${k}" aria-pressed="${(st.mg||"")===k}">${l}</button>`).join("")}<button class="chip" data-mg="fam" aria-pressed="${st.mg==="fam"}">ファミリー（2K以上）</button></div>
  <div class="chips" style="margin-top:-4px">${[["","オートロック：指定なし"],["yes","🔒あり"],["no","なし"]].map(([k,l])=>`<button class="chip" data-lk="${k}" aria-pressed="${(st.lk||"")===k}">${l}</button>`).join("")}</div>

@@ -246,3 +246,11 @@ header{background:var(--ink);color:#fff;border:0;box-shadow:inset 0 -3px 0 var(-
 .chip{font-size:13px;padding:7px 12px}
 @media (max-width:400px){.seg button{font-size:12px;padding:7px 2px;letter-spacing:-.02em}}
 .seg .segn{display:block;font-size:10px;font-weight:500;opacity:.75;margin-top:1px}
+/* 詳細条件 */
+.advbtn{display:flex;align-items:center;gap:8px;width:100%;margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;font-size:14px;font-weight:700;cursor:pointer;text-align:left}
+.advbtn .advn{background:var(--accent);color:#fff;border-radius:999px;font-size:11px;padding:1px 8px}.advbtn .ar{margin-left:auto;color:var(--sub);font-size:11px}
+.adv{margin-top:6px;padding:4px 12px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.advh{font-size:12px;font-weight:700;color:var(--sub);margin:10px 0 0}
+.adv .chips{margin-top:6px}
+.advf{display:flex;gap:8px;align-items:center;margin-top:12px}.advf .save{margin:0;flex:1}
+.advclr{border:0;background:none;color:var(--sub);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;padding:8px 4px}

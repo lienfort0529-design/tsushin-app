@@ -36,7 +36,7 @@ const memOf=b=>{const w=Object.assign({},b.web||{});delete w.src;return Object.a
 const VIS=()=>ROLE==="agency"?B.filter(isPub):B;
 const st={view:"list",v:"list",f:"all",q:"",city:"",b:null,t:0,mode:"list",room:null,pick:null,lim:50,near:false,pos:null,auto:true};
 Object.assign(st,load("au_view",{}));st.pos=null;st.near=false;
-const keep=()=>save("au_view",{estOn:st.estOn,src:st.src,f:st.f,city:st.city,auto:st.auto,view:st.view,base:st.base,mg:st.mg,lk:st.lk});
+const keep=()=>save("au_view",{estOn:st.estOn,src:st.src,f:st.f,city:st.city,auto:st.auto,view:st.view,base:st.base,mg:st.mg,lk:st.lk,adv:st.adv});
 function km(b){if(!st.pos||b.lat==null)return 1e9;const R=6371,r=Math.PI/180,dl=(b.lat-st.pos[0])*r,dg=(b.lng-st.pos[1])*r;const x=Math.sin(dl/2)**2+Math.cos(st.pos[0]*r)*Math.cos(b.lat*r)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
 function dtxt(d){return d>=1e8?"":d<1?Math.round(d*1000/10)*10+"m":d.toFixed(1)+"km"}
 function cityCenter(){const a=VIS().filter(b=>b.city===st.city&&b.lat!=null);if(!a.length)return null;return [a.reduce((s,b)=>s+b.lat,0)/a.length,a.reduce((s,b)=>s+b.lng,0)/a.length]}
@@ -104,7 +104,7 @@ function render(){document.body.classList.toggle("wide",st.v==="admin");if((ROLE
  const app=$("#app");
  if(st.v==="news")app.innerHTML=news();else if(st.v==="my")app.innerHTML=my();else if(st.v==="admin")app.innerHTML=admin();else app.innerHTML=st.b?detail():list();
  window.scrollTo(0,0);if(st.v==="list"&&!st.b&&st.view==="map")drawMap();else if(MAP){MAP.remove();MAP=null}}
-function emptyMsg(){const L={f:{hot:"🔥未着手",part:"一部だけ",chk:"現場で確認",go:"訪問中"},mg:{s:"1R・1K",d1:"1DK・1LDK",f2:"2K〜2LDK",f3:"3DK以上",fam:"ファミリー"},lk:{yes:"オートロックあり",no:"オートロックなし"}};const on=["f","mg","lk"].filter(k=>st[k]).map(k=>L[k][st[k]]||st[k]);if(!on.length)return '<p class="lead">該当する物件がありません。</p>';const keep={f:st.f,mg:st.mg,lk:st.lk};st.f="";st.mg="";st.lk="";const n=filtered().length;Object.assign(st,keep);return `<div class="note"><b>該当する物件がありません</b><div class="small" style="margin:4px 0 8px">いま「${on.map(esc).join("・")}」で絞り込んでいます。${n?`この絞り込みを外すと ${n}件 あります。`:""}</div><button class="save" id="clr">絞り込みを外す</button></div>`}
+function emptyMsg(){const L={f:{hot:"🔥未着手",part:"一部だけ",chk:"現場で確認",go:"訪問中"},mg:{s:"1R・1K",d1:"1DK・1LDK",f2:"2K〜2LDK",f3:"3DK以上",fam:"ファミリー"},lk:{yes:"オートロックあり",no:"オートロックなし"}};const on=["f","mg","lk"].filter(k=>st[k]&&st[k]!=="all").map(k=>L[k][st[k]]||st[k]);if(advN())on.push("詳細条件");if(!on.length)return '<p class="lead">該当する物件がありません。</p>';const keep={f:st.f,mg:st.mg,lk:st.lk,adv:st.adv};st.f="";st.mg="";st.lk="";st.adv=null;const n=filtered().length;Object.assign(st,keep);return `<div class="note"><b>該当する物件がありません</b><div class="small" style="margin:4px 0 8px">いま「${on.map(esc).join("・")}」で絞り込んでいます。${n?`この絞り込みを外すと ${n}件 あります。`:""}</div><button class="save" id="clr">絞り込みを外す</button></div>`}
 function filtered(){let a=VIS();const src=st.src||"t";if(src==="t")a=a.filter(b=>b.kind!=="d");else if(src==="d")a=a.filter(b=>b.kind==="d");
  if(st.city)a=a.filter(b=>b.city===st.city);
  if(st.f==="hot")a=a.filter(isHot);if(st.f==="part")a=a.filter(b=>b.kind==="p");if(st.f==="chk")a=a.filter(b=>b.kind==="c");if(st.f==="go")a=a.filter(touched);
@@ -112,8 +112,23 @@ function filtered(){let a=VIS();const src=st.src||"t";if(src==="t")a=a.filter(b=
  if(st.mg==="fam")a=a.filter(b=>["f2","f3","fam~"].includes(G(b)));else if(st.mg==="s")a=a.filter(b=>["s","s~"].includes(G(b)));else if(st.mg)a=a.filter(b=>G(b)===st.mg);
  if(st.lk)a=a.filter(b=>{const x=lockOf(memOf(b));return x===st.lk||(st.lk==="no"&&x==="est")});
  if(st.q){const qs=st.q.normalize("NFKC").toLowerCase().split(/\s+/).filter(x=>x);a=a.filter(b=>{const m=memOf(b);const hay=(b.name+" "+b.city+" "+b.addr+" "+(ROLE==="own"||isPub(b)?Object.values(m).join(" "):"")).normalize("NFKC").toLowerCase();return qs.every(q=>hay.includes(q))})}
+ const D=ADV();
+ if(D.mgs.length){const M={s:["s","s~"],d1:["d1"],f2:["f2","fam~"],f3:["f3","fam~"]};const ok=D.mgs.flatMap(k=>M[k]||[k]);a=a.filter(b=>ok.includes(G(b)))}
+ if(D.kosu)a=a.filter(b=>{const n=kosuOf(b);return n==null?D.unk:n>=D.kosu});
+ if(D.left)a=a.filter(b=>{const ks=allRooms(b);return !ks.length||ks.filter(k=>!hist(k).length).length*2>=ks.length});
+ if(D.kn)a=a.filter(b=>allRooms(b).some(k=>{const l=last(k);return l&&l.s==="kn"}));
  if(st.near&&st.pos)a=a.slice().sort((x,y)=>km(x)-km(y));
  return a}
+// 詳細条件（間取りの複数選択・戸数・まだ回っていない部屋が多い・検討あり）
+const ADV=()=>Object.assign({mgs:[],kosu:0,left:false,kn:false,unk:true},st.adv||{});
+const kosuOf=b=>{const m=String(memOf(b).kosu||"").normalize("NFKC").match(/\d+/);return m?+m[0]:null};
+const advN=()=>{const D=ADV();return (D.mgs.length?1:0)+(D.kosu?1:0)+(D.left?1:0)+(D.kn?1:0)};
+function advBox(){const D=ADV(),n=filtered().length;const ck=(on,attr,l)=>`<button class="chip" ${attr} aria-pressed="${on}">${l}</button>`;
+ return `<div class="adv"><div class="advh">間取り（いくつでも）</div><div class="chips">${MG.slice(1).map(([k,l])=>ck(D.mgs.includes(k),`data-advmg="${k}"`,l)).join("")}</div>
+ <div class="advh">戸数</div><div class="chips">${[[0,"指定なし"],[20,"20戸以上"],[50,"50戸以上"],[100,"100戸以上"]].map(([k,l])=>ck(D.kosu===k,`data-advk="${k}"`,l)).join("")}</div>
+ ${D.kosu?`<label class="auto" style="margin:0 0 4px"><input type="checkbox" id="advUnk" ${D.unk?"checked":""}>戸数が分からない物件も出す</label>`:""}
+ <div class="advh">訪問の状況</div><div class="chips">${ck(D.left,'data-advb="left"',"まだ回っていない部屋が半分以上")}${ck(D.kn,'data-advb="kn"',"検討の部屋がある")}</div>
+ <div class="advf"><button class="advclr" id="advClr">条件をクリア</button><button class="save" id="advGo">${n.toLocaleString()}件の物件を見る</button></div></div>`}
 function list(){const a=filtered();const hc=st.near&&st.pos?hereCity():"";
  const F=[["all","すべて"],["hot","🔥未着手"],["go","訪問中"],["part","一部だけ"],["chk","現場で確認"]];
  return `<button class="near" id="near" aria-pressed="${st.near}">${st.near?"📍 近い順で表示中（タップで解除）":"📍 現在地から近い物件"}</button>
@@ -121,11 +136,13 @@ function list(){const a=filtered();const hc=st.near&&st.pos?hereCity():"";
  <input class="search" id="q" type="search" enterkeyhint="search" placeholder="物件名・住所・メモで検索（例：大正区 1DK）" value="${esc(st.q)}">
  <select class="sel" id="city" aria-label="市区町村"><option value="">大阪府すべて（${VIS().length.toLocaleString()}件）</option>${CITIES.map(c=>`<option value="${esc(c)}" ${c===st.city?"selected":""}>${esc(c)}（${CITY_N[c].toLocaleString()}）</option>`).join("")}</select>
  <div class="seg" style="margin-top:10px">${[["t","自社リスト物件","Dropboxに無い"],["d","上位店の公開物件","Dropboxにある"],["a","すべて",""]].map(([k,l,n])=>`<button data-src="${k}" aria-pressed="${(st.src||"t")===k}">${l}${n?`<small class="segn">${n}</small>`:""}</button>`).join("")}</div>
+ <button class="advbtn" id="advBtn" aria-expanded="${!!st.advOpen}">🔎 詳細条件${advN()?`<span class="advn">${advN()}件</span>`:""}<span class="ar">${st.advOpen?"▲":"▼"}</span></button>
+ ${st.advOpen?advBox():""}
  <div class="chips">${F.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${st.f===k}">${l}</button>`).join("")}</div>
  <div class="chips" style="margin-top:-4px">${MG.map(([k,l])=>`<button class="chip" data-mg="${k}" aria-pressed="${(st.mg||"")===k}">${l}</button>`).join("")}<button class="chip" data-mg="fam" aria-pressed="${st.mg==="fam"}">ファミリー（2K以上）</button></div>
  <div class="chips" style="margin-top:-4px">${[["","オートロック：指定なし"],["yes","🔒あり"],["no","なし"]].map(([k,l])=>`<button class="chip" data-lk="${k}" aria-pressed="${(st.lk||"")===k}">${l}</button>`).join("")}</div>
  ${(()=>{const [k,t]=timeHint();return st.mg===k?"":`<div class="here"><span>🕒 ${t}</span><button data-mg="${k}">この条件で出す</button></div>`})()}
- ${st.mg||st.lk?`<label class="auto" style="margin:2px 0 6px"><input type="checkbox" id="estOn" ${st.estOn!==false?"checked":""}>名前から推定した物件も出す（「推定」の印つき）</label>`:""}
+ ${st.mg||st.lk||ADV().mgs.length?`<label class="auto" style="margin:2px 0 6px"><input type="checkbox" id="estOn" ${st.estOn!==false?"checked":""}>名前から推定した物件も出す（「推定」の印つき）</label>`:""}
  <div class="seg"><button data-view="list" aria-pressed="${st.view==="list"}">リスト</button><button data-view="map" aria-pressed="${st.view==="map"}">地図</button></div>
  <div id="res">${listRes(a)}</div>`}
 function listRes(a){return ` ${st.view==="map"?`<div id="map" role="region" aria-label="物件の地図"></div><div class="legend"><span><i style="background:#e8590c"></i>未着手</span><span><i style="background:#1f4e79"></i>訪問中</span><span><i style="background:#c99a00"></i>一部だけ</span><span><i style="background:#c92a2a"></i>現場で確認</span><span><i style="background:#2f9e44"></i>現在地</span></div><div class="small" style="margin-top:4px">${a.filter(b=>b.lat!=null).length.toLocaleString()}件を表示中</div>`:`<div class="small" style="margin-bottom:6px">${a.length.toLocaleString()}件（${st.near&&st.pos?"近い順":"棟数の多い順"}）</div>
@@ -301,7 +318,7 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
  if(t.dataset.del!=null&&st.room){const k=st.room,i=+t.dataset.del;if(st.delAsk!==k+"/"+i){st.delAsk=k+"/"+i;t.textContent="もう一度で取り消し";return}st.delAsk=null;delRec(k,i);return openRoom(k)}
  if(t.classList.contains("tab")&&t.dataset.v){STK.length=0;const fromB=st.b&&t.dataset.v==="list";st.editMemo=false;st.ed=false;st.v=t.dataset.v;st.b=null;render();pushH();if(fromB&&listY.y)setTimeout(()=>scrollTo(0,listY.y),0);return}
  if(t.dataset.src){st.src=t.dataset.src;st.lim=50;keep();return render()}
- if(t.dataset.mg!==undefined){st.mg=t.dataset.mg;st.lim=50;keep();return render()}
+ if(t.dataset.mg!==undefined){st.mg=t.dataset.mg;if(st.mg&&st.adv)st.adv.mgs=[];st.lim=50;keep();return render()}
  if(t.dataset.lk!==undefined){st.lk=t.dataset.lk;st.lim=50;keep();return render()}
  if(t.dataset.f){st.f=t.dataset.f;st.lim=50;keep();return render()}
  if(t.id==="editmemo"){st.editMemo=true;const y=scrollY;render();scrollTo(0,y);return}
@@ -319,6 +336,14 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
  if(t.id==="dopub"){const d=new Date();PUB[t.dataset.id]=(d.getMonth()+1)+"/"+d.getDate();save("au_pub",PUB);closeRoom();render();return toast("公開しました（Dropboxに記載）")}
  if(t.dataset.unpub){delete PUB[t.dataset.unpub];save("au_pub",PUB);render();return toast("自社のみに戻しました")}
  if(t.dataset.view){st.view=t.dataset.view;keep();return render()}
+ if(t.id==="advBtn"){st.advOpen=!st.advOpen;const y=scrollY;render();scrollTo(0,y);return}
+ if(t.dataset.advmg||t.dataset.advk!==undefined||t.dataset.advb||t.id==="advClr"){const D=ADV();
+  if(t.dataset.advmg){const k=t.dataset.advmg;D.mgs=D.mgs.includes(k)?D.mgs.filter(x=>x!==k):D.mgs.concat(k);if(D.mgs.length)st.mg=""}
+  if(t.dataset.advk!==undefined)D.kosu=+t.dataset.advk;
+  if(t.dataset.advb)D[t.dataset.advb]=!D[t.dataset.advb];
+  if(t.id==="advClr")Object.assign(D,{mgs:[],kosu:0,left:false,kn:false,unk:true});
+  st.adv=D;st.lim=50;keep();const y=scrollY;render();scrollTo(0,y);return}
+ if(t.id==="advGo"){st.advOpen=false;keep();render();const r=document.getElementById("res");if(r)r.scrollIntoView();return}
  if(t.id==="near"){if(st.near){st.near=false;return render()}return locate()}
  if(t.dataset.city){st.city=t.dataset.city;st.lim=50;keep();return render()}
  if(t.id==="more"){st.lim+=100;const y=scrollY;render();scrollTo(0,y);return}
@@ -326,7 +351,7 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
  if(t.dataset.t){st.t=+t.dataset.t;return keepY(render)}
  if(t.id==="favb"&&st.b){if(FAV[st.b])delete FAV[st.b];else FAV[st.b]=Date.now();save("au_fav",FAV);const y=scrollY;render();scrollTo(0,y);return toast(FAV[st.b]?"★ 気になるに入れました（マイページで見られます）":"気になるから外しました")}
  if(t.id==="back"){st.editMemo=false;st.ed=false;const pv=STK.pop();if(pv){st.v=pv.v;st.b=pv.b;st.t=pv.t||0}else{st.v="list";st.b=null}render();pushH();const y=pv?pv.y:listY.y;if(y)setTimeout(()=>scrollTo(0,y),0);return}
- if(t.id==="clr"){st.f="";st.mg="";st.lk="";keep();return render()}
+ if(t.id==="clr"){st.f="";st.mg="";st.lk="";st.adv=null;keep();return render()}
  if(t.id==="edt"){st.ed=!st.ed;st.mode="list";return keepY(render)}
  if(t.id==="gonek"&&st.room){const k=st.room;if(hist(k).length)return toast("記録がある部屋は消せません");if(st.goneAsk!==k){st.goneAsk=k;t.textContent="もう一度タップすると一覧から消します";return}st.goneAsk=null;const key=k.slice(0,k.lastIndexOf("-")),no=k.split("-").pop(),lay=LAY[key];if(!lay)return;(lay.x=lay.x||[]).push(no);saveLay();closeRoom();const y=scrollY;render();scrollTo(0,y);return toast(no+"号室を一覧から消しました（「部屋数を直す」で戻せます）")}
  if(t.dataset.gone||t.dataset.back){const key=tk(BY[st.b],st.t),lay=LAY[key];if(!lay)return;lay.x=lay.x||[];if(t.dataset.gone){const no=t.dataset.gone;if(hist(key+"-"+no).length)return toast(no+"号室は記録があるので消せません");lay.x.push(no);toast(no+"号室を「存在しない」にしました")}else{lay.x=lay.x.filter(x=>x!==t.dataset.back);toast(t.dataset.back+"号室を戻しました")}if(!lay.x.length)delete lay.x;saveLay();const y=scrollY;render();scrollTo(0,y);return}
@@ -344,7 +369,7 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
 });
 document.addEventListener("focusin",e=>{const t=e.target;if(t.matches('input:not([type=checkbox]),textarea')){document.body.classList.add("typing");setTimeout(()=>{try{t.scrollIntoView({block:"center"})}catch(x){}},300)}});
 document.addEventListener("focusout",e=>{setTimeout(()=>{const a=document.activeElement;if(!a||!a.matches('input:not([type=checkbox]),textarea'))document.body.classList.remove("typing")},100)});
-document.addEventListener("change",e=>{if(e.target.id==="estOn"){st.estOn=e.target.checked;keep();return render()}if(e.target.id==="iv"||e.target.id==="app"){const S=load("au_set",{iv:"month",app:true});if(e.target.id==="iv")S.iv=e.target.value;else S.app=e.target.checked;save("au_set",S);return render()}if(e.target.id==="per"){st.per=e.target.value==="mo"?"mo":"all";return render()}if(e.target.id==="a_city"||e.target.id==="a_k"){st.adm=Object.assign(st.adm||{},{[e.target.id==="a_city"?"city":"k"]:e.target.value,n:100});return render()}if(e.target.id==="city"){st.city=e.target.value;st.lim=50;keep();render()}if(e.target.id==="auto"){st.auto=e.target.checked;keep()}});
+document.addEventListener("change",e=>{if(e.target.id==="estOn"){st.estOn=e.target.checked;keep();return render()}if(e.target.id==="advUnk"){st.adv=Object.assign(ADV(),{unk:e.target.checked});keep();const y=scrollY;render();scrollTo(0,y);return}if(e.target.id==="iv"||e.target.id==="app"){const S=load("au_set",{iv:"month",app:true});if(e.target.id==="iv")S.iv=e.target.value;else S.app=e.target.checked;save("au_set",S);return render()}if(e.target.id==="per"){st.per=e.target.value==="mo"?"mo":"all";return render()}if(e.target.id==="a_city"||e.target.id==="a_k"){st.adm=Object.assign(st.adm||{},{[e.target.id==="a_city"?"city":"k"]:e.target.value,n:100});return render()}if(e.target.id==="city"){st.city=e.target.value;st.lim=50;keep();render()}if(e.target.id==="auto"){st.auto=e.target.checked;keep()}});
 document.addEventListener("toggle",e=>{if(e.target.id==="bdet")st.detOpen=e.target.open;if(e.target.id==="hdet")st.hOpen=e.target.open},true);
 let qT=null;
 function qUpdate(v){st.q=v;st.lim=50;clearTimeout(qT);qT=setTimeout(()=>{const a=filtered();const r=$("#res");if(!r)return render();r.innerHTML=listRes(a);if(st.view==="map")drawMap()},250)}

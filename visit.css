@@ -245,3 +245,4 @@ header{background:var(--ink);color:#fff;border:0;box-shadow:inset 0 -3px 0 var(-
 .seg button{font-size:13px;padding:7px 4px;line-height:1.3;flex:1 1 auto}
 .chip{font-size:13px;padding:7px 12px}
 @media (max-width:400px){.seg button{font-size:12px;padding:7px 2px;letter-spacing:-.02em}}
+.seg .segn{display:block;font-size:10px;font-weight:500;opacity:.75;margin-top:1px}

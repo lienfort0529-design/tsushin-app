@@ -240,16 +240,21 @@ const FDB=[["part","一部の棟だけDropboxにある"],["chk","Dropboxと同�
 // 入っている条件を短い言葉で（条件を閉じているときに一覧の上に出す）
 function advSum(){const D=ADV(),o=[];if((st.src||"t")==="d")o.push("上位店の公開物件");if(st.src==="a")o.push("自社＋上位店");if(st.f&&st.f!=="all")o.push((FST.concat(FDB).find(x=>x[0]===st.f)||[,""])[1]);if(D.mgs.length)o.push(D.mgs.map(k=>(MG.find(x=>x[0]===k)||[,""])[1]).join("・"));if(st.lk)o.push(st.lk==="yes"?"🔒オートロックあり":"オートロックなし");if(D.trs&&D.trs.length){const [nk,,nl]=trNow();o.push(D.trs.join(",")===nk?"🕒"+nl:D.trs.map(k=>TRL[k]).join("・"))}if(D.kosu)o.push(D.kosu+"戸以上");if(D.left)o.push("まだの部屋 "+LEFT.find(x=>x[0]===D.left)[1]);return o}
 function advBox(){const D=ADV(),n=filtered().length;const ck=(on,attr,l)=>`<button class="chip" ${attr} aria-pressed="${on}">${l}</button>`;
- return `<div class="adv"><div class="advtop"><div class="advh">物件の種類</div>${advN()?`<button class="advclr" id="advClrTop">条件をクリア</button>`:""}</div><div class="seg" style="margin-top:6px">${[["t","自社リスト物件","Dropboxに無い"],["d","上位店の公開物件","Dropboxにある"],["a","すべて",""]].map(([k,l,n])=>`<button data-src="${k}" aria-pressed="${(st.src||"t")===k}">${l}${n?`<small class="segn">${n}</small>`:""}</button>`).join("")}</div>
- <div class="advh">訪問の進み具合</div><div class="chips">${FST.map(([k,l])=>ck((st.f||"all")===k,`data-f="${k}"`,l)).join("")}</div>
- <div class="advh">間取り（いくつでも）</div><div class="chips">${MG.slice(1).map(([k,l])=>ck(D.mgs.includes(k),`data-advmg="${k}"`,l)).join("")}</div>
- <div class="advh">オートロック</div><div class="chips">${[["","指定なし"],["yes","🔒あり"],["no","なし"]].map(([k,l])=>ck((st.lk||"")===k,`data-lk="${k}"`,l)).join("")}</div>
-
+ // 1つだけ選ぶものはプルダウン（2列）、いくつでも選ぶものは押すと開く行に
+ const sel=(id,lab,opts,v)=>`<label class="asel"><span>${lab}</span><select id="${id}">${opts.map(([k,l])=>`<option value="${k}" ${String(v)===String(k)?"selected":""}>${l}</option>`).join("")}</select></label>`;
+ const multi=(id,lab,sum,body)=>`<details class="amul" ${st.advMul===id?"open":""} data-mul="${id}"><summary><span>${lab}</span><b>${sum}</b></summary><div class="chips">${body}</div></details>`;
+ return `<div class="adv"><div class="advtop"><div class="advh">条件</div>${advN()?`<button class="advclr" id="advClrTop">条件をクリア</button>`:""}</div>
+ <div class="agrid">
+ ${sel("a_src","物件の種類",[["t","自社リスト物件"],["d","上位店の公開物件"],["a","すべて"]],st.src||"t")}
+ ${sel("a_f","訪問の進み具合",FST.map(([k,l])=>[k,l.replace(/^[🔥🚶]/u,"")]),st.f||"all")}
+ ${sel("a_lk","オートロック",[["","指定なし"],["yes","あり"],["no","なし"]],st.lk||"")}
+ ${sel("a_k","戸数",[[0,"指定なし"],[20,"20戸以上"],[50,"50戸以上"],[100,"100戸以上"]],D.kosu)}
+ ${sel("a_l","まだ回っていない部屋",LEFT.map(([k,l])=>[k,l]),D.left)}
+ </div>
+ ${multi("mg","間取り",D.mgs.length?D.mgs.map(k=>(MG.find(x=>x[0]===k)||[,""])[1]).join("・"):"すべて",MG.slice(1).map(([k,l])=>ck(D.mgs.includes(k),`data-advmg="${k}"`,l)).join(""))}
+ ${multi("tr","住んでいる人",D.trs.length?D.trs.map(k=>TRL[k]).join("・"):"指定なし",TR.map(([k,l])=>ck(D.trs.includes(k),`data-advtr="${k}"`,l)).join(""))}
+ ${D.kosu?`<label class="auto" style="margin:6px 0 0"><input type="checkbox" id="advUnk" ${D.unk?"checked":""}>戸数が分からない物件も出す</label>`:""}
  ${D.mgs.length||st.lk?`<label class="estck"><input type="checkbox" id="estOn" ${st.estOn!==false?"checked":""}><span><b>間取り・オートロックが分からない物件も、予想して出す</b><small>物件名や掲載から予想したもので、違うこともあります。カードに「推定」と出ます。</small></span></label>`:""}
- <div class="advh">住んでいる人（いくつでも・推定も含む）</div><div class="chips">${TR.map(([k,l])=>ck(D.trs.includes(k),`data-advtr="${k}"`,l)).join("")}</div>
- <div class="advh">戸数</div><div class="chips">${[[0,"指定なし"],[20,"20戸以上"],[50,"50戸以上"],[100,"100戸以上"]].map(([k,l])=>ck(D.kosu===k,`data-advk="${k}"`,l)).join("")}</div>
- ${D.kosu?`<label class="auto" style="margin:0 0 4px"><input type="checkbox" id="advUnk" ${D.unk?"checked":""}>戸数が分からない物件も出す</label>`:""}
- <div class="advh">まだ回っていない部屋</div><div class="chips">${LEFT.map(([k,l])=>ck(D.left===k,`data-advl="${k}"`,l)).join("")}</div>
  <div class="advf"><button class="advclr" id="advClr">条件をクリア</button><button class="save" id="advGo">${n.toLocaleString()}件の物件を見る</button></div></div>`}
 function list(){const a=filtered();const hc=st.near&&st.pos?hereCity():"";
  return `${myToday()}
@@ -376,7 +381,7 @@ function scoreTxt(b){const s=bScore(b);return s.v?`<div class="nums score">訪�
 // ★気になる（au_fav）と最近見た物件（au_recent）は、このスマホにだけ保存する
 const RECENT=load("au_recent",[]);
 const MYOPEN=new Set(load("au_myopen",[]));
-document.addEventListener("toggle",e=>{const d=e.target;if(!d.matches||!d.matches(".mysec"))return;const k=d.dataset.sec;if(d.open)MYOPEN.add(k);else MYOPEN.delete(k);save("au_myopen",[...MYOPEN])},true);
+document.addEventListener("toggle",e=>{if(e.target.dataset&&e.target.dataset.mul){if(e.target.open)st.advMul=e.target.dataset.mul;else if(st.advMul===e.target.dataset.mul)st.advMul=null}const d=e.target;if(!d.matches||!d.matches(".mysec"))return;const k=d.dataset.sec;if(d.open)MYOPEN.add(k);else MYOPEN.delete(k);save("au_myopen",[...MYOPEN])},true);
 // ★気になる：全員分を共有（FAVS = {物件ID: {名前: 時刻}}）。自分の★は FAVS[id][自分]
 const FAVS=load("au_favs",{});
 const isFav=id=>!!(ME&&FAVS[id]&&FAVS[id][ME]);
@@ -592,7 +597,7 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
 });
 document.addEventListener("focusin",e=>{const t=e.target;if(t.matches('input:not([type=checkbox]),textarea')){document.body.classList.add("typing");setTimeout(()=>{try{t.scrollIntoView({block:"center"})}catch(x){}},300)}});
 document.addEventListener("focusout",e=>{setTimeout(()=>{const a=document.activeElement;if(!a||!a.matches('input:not([type=checkbox]),textarea'))document.body.classList.remove("typing")},100)});
-document.addEventListener("change",e=>{if(e.target.id==="tsel"){st.t=+e.target.value;const y=scrollY;render();scrollTo(0,y);return}if(e.target.id==="estOn"){st.estOn=e.target.checked;keep();const y=scrollY;render();scrollTo(0,y);return}if(e.target.id==="advUnk"){st.adv=Object.assign(ADV(),{unk:e.target.checked});keep();const y=scrollY;render();scrollTo(0,y);return}if(e.target.id==="iv"||e.target.id==="app"){const S=load("au_set",{iv:"month",app:true});if(e.target.id==="iv")S.iv=e.target.value;else S.app=e.target.checked;save("au_set",S);return render()}if(e.target.id==="per"){st.per=e.target.value==="mo"?"mo":"all";return render()}if(e.target.id==="a_city"||e.target.id==="a_k"){st.adm=Object.assign(st.adm||{},{[e.target.id==="a_city"?"city":"k"]:e.target.value,n:100});return render()}if(e.target.id==="city"){st.city=e.target.value;st.lim=50;keep();render()}if(e.target.id==="auto"){st.auto=e.target.checked;keep()}});
+document.addEventListener("change",e=>{{const id=e.target.id,v=e.target.value,D=ADV();let hit=true;if(id==="a_src")st.src=v;else if(id==="a_f")st.f=v;else if(id==="a_lk")st.lk=v;else if(id==="a_k"){D.kosu=+v;st.adv=D}else if(id==="a_l"){D.left=v;st.adv=D}else hit=false;if(hit){st.lim=50;keep();const y=scrollY;render();scrollTo(0,y);return}}if(e.target.id==="tsel"){st.t=+e.target.value;const y=scrollY;render();scrollTo(0,y);return}if(e.target.id==="estOn"){st.estOn=e.target.checked;keep();const y=scrollY;render();scrollTo(0,y);return}if(e.target.id==="advUnk"){st.adv=Object.assign(ADV(),{unk:e.target.checked});keep();const y=scrollY;render();scrollTo(0,y);return}if(e.target.id==="iv"||e.target.id==="app"){const S=load("au_set",{iv:"month",app:true});if(e.target.id==="iv")S.iv=e.target.value;else S.app=e.target.checked;save("au_set",S);return render()}if(e.target.id==="per"){st.per=e.target.value==="mo"?"mo":"all";return render()}if(e.target.id==="a_city"||e.target.id==="a_k"){st.adm=Object.assign(st.adm||{},{[e.target.id==="a_city"?"city":"k"]:e.target.value,n:100});return render()}if(e.target.id==="city"){st.city=e.target.value;st.lim=50;keep();render()}if(e.target.id==="auto"){st.auto=e.target.checked;keep()}});
 document.addEventListener("toggle",e=>{if(e.target.id==="rdet")st.rOpen=e.target.open;if(e.target.id==="bdet")st.detOpen=e.target.open;if(e.target.id==="hdet")st.hOpen=e.target.open},true);
 let qT=null;
 function qUpdate(v){st.q=v;st.lim=50;clearTimeout(qT);qT=setTimeout(()=>{const a=filtered();const r=$("#res");if(!r)return render();r.innerHTML=listRes(a);if(st.view==="map")drawMap()},250)}

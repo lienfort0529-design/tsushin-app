@@ -333,8 +333,8 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
  if(t.dataset.er||t.dataset.ef){const b=BY[st.b],key=tk(b,st.t),lay=LAY[key];if(!lay)return;lay.fp=lay.fp||{};const used=no=>hist(key+"-"+no).length>0;
   if(t.dataset.er){const f=+t.dataset.er,d=+t.dataset.d,n=cnt(lay,f);if(d>0){if(n>=40)return toast("1フロア40部屋までです");lay.fp[f]=n+1}else{if(n<=0)return;const no=f+String(n).padStart(2,"0");if(used(no))return toast(no+"号室は訪問記録があるので消せません");lay.fp[f]=n-1}}
   else{const d=+t.dataset.ef;if(d>0){if(lay.f>=60)return;lay.f++;lay.fp[lay.f]=lay.p}else{if(lay.f<=1)return toast("1階は消せません");const f=lay.f,n=cnt(lay,f);for(let r=1;r<=n;r++){const no=f+String(r).padStart(2,"0");if(used(no))return toast(f+"階に訪問記録がある部屋があるので消せません")}if(n>0&&st.flAsk!==key+"/"+f){st.flAsk=key+"/"+f;return toast("もう一度「−階」を押すと "+f+"階（"+n+"部屋）を消します")}st.flAsk=null;delete lay.fp[f];lay.f--}}
-  saveLay();return render()}
- if(t.id==="mk"){const f=Math.max(1,Math.min(60,+$("#lf").value||0)),p=Math.max(1,Math.min(40,+$("#lp").value||0));LAY[tk(BY[st.b],st.t)]={f,p};saveLay();render();return toast(f*p+"部屋を作りました")}
+  saveLay();return keepY(render)}
+ if(t.id==="mk"){const f=Math.max(1,Math.min(60,+$("#lf").value||0)),p=Math.max(1,Math.min(40,+$("#lp").value||0));LAY[tk(BY[st.b],st.t)]={f,p};saveLay();keepY(render);return toast(f*p+"部屋を作りました")}
  if(t.dataset.m){st.mode=t.dataset.m;try{localStorage.setItem("mode",st.mode)}catch(e){}return keepY(render)}
  if(t.dataset.k)return openRoom(t.dataset.k);
  if(t.id==="dgflag"&&st.room){const k=st.room;if(DGR[k]){if(st.dgAsk!==k){st.dgAsk=k;t.textContent="もう一度タップすると⚠の印を外します";return}st.dgAsk=null;delete DGR[k];toast("⚠の印を外しました")}else{const d=new Date();DGR[k]={w:ME,d:String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0"),t:Date.now(),m:""};toast("⚠危険の印を付けました")}save("au_danger",DGR);const y=scrollY;render();scrollTo(0,y);openRoom(k);return}

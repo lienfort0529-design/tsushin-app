@@ -77,14 +77,18 @@ const routeWho=id=>Object.keys(RTS).filter(n=>n!==ME&&RTS[n]&&RTS[n].d===today0(
 function etaOf(name,id){const r=RTS[name];if(!r||r.d!==today0())return null;const ids=r.ids||[],ti=ids.indexOf(+id);if(ti<0)return null;
  const recs=allRecs().filter(h=>h.w===name&&isToday(h.t)).sort((a,b)=>a.t-b.t);const done=new Set(recs.map(h=>h.b.id));
  if(done.has(+id))return {done:true};
- // 1物件にかける時間：今日の記録で、物件ごとの最初〜最後＋部屋あたり1分。分からなければ30分
- const per={};recs.forEach(h=>{const x=per[h.b.id]||(per[h.b.id]={a:h.t,z:h.t,n:0});x.z=h.t;x.n++});const ds=Object.values(per).map(x=>(x.z-x.a)/6e4+x.n);const stay=ds.length?Math.max(10,Math.min(90,ds.reduce((a,b)=>a+b,0)/ds.length)):30;
- // いまの場所：ルートの中で最後に記録した物件（無ければルートの前の物件から歩き始める）
- let t=Date.now(),cur=null,from=0;const lastIn=[...recs].reverse().find(h=>ids.includes(h.b.id));
- if(lastIn){from=ids.indexOf(lastIn.b.id);if(from>ti)return null;cur=lastIn.b;const left=Math.max(0,stay-(Date.now()-per[cur.id].a)/6e4);t=Date.now()+left*6e4;from++}
- for(let i=from;i<=ti;i++){const b=BY[ids[i]];if(!b||b.lat==null)continue;if(done.has(b.id)&&i<ti)continue;if(cur&&cur.lat!=null)t+=kmAB([cur.lat,cur.lng],[b.lat,b.lng])*1.3/4*36e5;if(i<ti)t+=stay*6e4;cur=b}
- return {t,started:!!recs.length}}
-const etaTxt=(n,id)=>{const e=etaOf(n,id);if(!e)return n+"さん";if(e.done)return n+"さん（もう回った）";return n+"さん（"+hm(e.t)+"ごろ着く目安"+(e.started?"":"・まだ回り始めていない")+"）"};
+ // 1部屋あたりの時間：今日の記録で、物件ごとの（最初〜最後）÷部屋数。分からなければ1.5分
+ const per={};recs.forEach(h=>{const x=per[h.b.id]||(per[h.b.id]={a:h.t,z:h.t,n:0});x.z=h.t;x.n++});
+ const ps=Object.values(per).filter(x=>x.n>1);const room=ps.length?Math.max(.5,Math.min(6,ps.reduce((a,x)=>a+(x.z-x.a)/6e4/(x.n-1),0)/ps.length)):1.5;
+ // 物件にかかる時間＝部屋数×1部屋の時間（部屋数が分からなければ20部屋）、10〜120分
+ const stayOf=b=>{const n=allRooms(b).length||kosuOf(b)||20;return Math.max(10,Math.min(120,n*room))};
+ let t=Date.now(),cur=null,from=0,now=-1;const lastIn=[...recs].reverse().find(h=>ids.includes(h.b.id));
+ if(lastIn){now=ids.indexOf(lastIn.b.id);if(now>ti)return null;cur=lastIn.b;const p=per[cur.id];const left=Math.max(0,stayOf(cur)-(Date.now()-p.a)/6e4);t=Date.now()+left*6e4;from=now+1}
+ for(let i=from;i<=ti;i++){const b=BY[ids[i]];if(!b||b.lat==null)continue;if(done.has(b.id)&&i<ti)continue;if(cur&&cur.lat!=null)t+=kmAB([cur.lat,cur.lng],[b.lat,b.lng])*1.3/4*36e5;if(i<ti)t+=stayOf(b)*6e4;cur=b}
+ return {t,started:!!recs.length,ahead:now>=0?ti-now:ti+1,at:lastIn?lastIn.b.name:""}}
+const etaTxt=(n,id)=>{const e=etaOf(n,id);if(!e)return n+"さん";if(e.done)return n+"さん（もう回った）";
+ const m=(e.t-Date.now())/6e4,h=new Date(e.t).getHours();const when=m<40?"まもなく":h+"時台の目安";
+ return n+"さん（"+(e.started?"あと"+e.ahead+"件先":e.ahead+"件目・まだ回り始めていない")+"・"+when+"）"};
 // 被りの一言（ほかの人のルート＋今日すでに回った人）
 function clashTxt(b){const r=routeWho(b.id),w=Object.keys(todayWho(b)).filter(n=>n!==ME);const a=[];if(r.length)a.push(r.map(n=>etaTxt(n,b.id)).join("・")+"のルートと被っています");if(w.length)a.push("今日 "+w.join("・")+"さんが回りました");return a.join("／")}
 const inRoute=id=>!!(ROUTE&&ROUTE.ids.includes(+id));
@@ -319,7 +323,7 @@ function detail(){const b=BY[st.b];if(RECENT[0]!==b.id){const i=RECENT.indexOf(b
  <div class="h2row"><h2>${esc(b.name)}</h2><button class="fav rtb ${inRoute(b.id)?"on":""}" data-rt="${b.id}">${inRoute(b.id)?"✓ ルート":"＋ ルート"}</button><button class="fav" id="favb" aria-pressed="${isFav(b.id)}">${isFav(b.id)?"★ 気になる":"☆ 気になる"}${favN(b.id)?`<small>${favN(b.id)}人</small>`:""}</button></div><div class="tyrow">${(()=>{const t=typeOf(b);return t?`auひかり <b class="ty ty-${t}">${TYPE_TXT[t]}</b>`:`auひかり タイプ：<b>現場で確認</b>（分かったら自社メモの「種別」に V か G）`})()}</div><div class="addr">${esc(b.addr)}${b.nt>1?`・${b.nt}棟`:""}${(()=>{const z=sizeOf(b);return z.kai?`・${z.kai}階建${z.kosu?"・"+z.kosu+"戸":""}${z.per?`（1フロア約${z.per}戸）`:""}`:""})()}</div>${roomTxt(b)&&(ROLE==="own"||isPub(b))?`<div style="font-weight:700;margin-top:4px">🏠 ${esc(roomTxt(b))}</div>`:""}
  ${allRooms(b).length?barHTML(allRooms(b))+`<div class="nums" style="margin-top:4px">${["mi",...PICK,"ke"].filter(s=>s==="mi"||c[s]).map(s=>RES[s].l+" "+c[s]).join("／")}${c.dg?`／<span style="color:var(--r-ke-t);font-weight:700">⚠危険 ${c.dg}</span>`:""}</div>`:""}${scoreTxt(b)}
  ${(()=>{const w=todayWho(b),ns=Object.keys(w).filter(n=>n!==ME);return ns.length?`<div class="note tdyn"><b>今日すでに回っている人</b>${ns.map(n=>esc(n)+"さん（"+w[n]+"部屋）").join("・")}</div>`:""})()}
- ${(()=>{const r=routeWho(b.id);return r.length?`<div class="note tdyn"><b>今日のルートに入れている人</b>${r.map(n=>esc(etaTxt(n,b.id))).join("・")}<div class="small" style="margin-top:4px">時刻はその人の今日の記録とルートの順番から出した目安です（歩き＋1物件あたりの時間）。</div></div>`:""})()}
+ ${(()=>{const r=routeWho(b.id);return r.length?`<div class="note tdyn"><b>今日のルートに入れている人</b>${r.map(n=>esc(etaTxt(n,b.id))).join("・")}<div class="small" style="margin-top:4px">「何件先」はルートの順番から。時刻はその人の今日の記録（1部屋あたりの時間×部屋数＋歩き）から出した目安です。</div></div>`:""})()}
  ${trBox(b)}
  <details id="bdet" class="det" ${st.detOpen||st.editMemo?"open":""}><summary>物件の詳細（ネット情報・メモ・地図）</summary>
  <div class="nums" style="margin-top:4px"><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.addr+" "+b.name)}" target="_blank" rel="noopener">Googleマップで見る</a>　<a href="https://www.google.com/search?q=${encodeURIComponent(b.name+" "+b.city+" site:suumo.jp")}" target="_blank" rel="noopener">SUUMOで探す</a>　<a href="https://www.google.com/search?q=${encodeURIComponent(b.name+" "+b.city+" site:homes.co.jp")}" target="_blank" rel="noopener">HOME'Sで探す</a>　<a href="https://www.google.com/search?q=${encodeURIComponent(b.name+" "+b.addr+" 間取り")}" target="_blank" rel="noopener">Googleで探す</a>${b.lat!=null?`　<a href="https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}" target="_blank" rel="noopener">道案内</a>`:""}</div>

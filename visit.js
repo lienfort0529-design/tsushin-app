@@ -34,7 +34,7 @@ let ROLE="own";
 const isPub=b=>b.kind==="d"||!!PUB[b.id];
 const memOf=b=>{const w=Object.assign({},b.web||{});delete w.src;return Object.assign(w,b.dm||{},MM[b.id]||{})};
 const VIS=()=>ROLE==="agency"?B.filter(isPub):B;
-const st={view:"list",v:"list",f:"all",q:"",city:"",b:null,t:0,mode:"list",room:null,pick:null,lim:50,near:false,pos:null,auto:true};
+const st={view:"map",v:"list",f:"all",q:"",city:"",b:null,t:0,mode:"list",room:null,pick:null,lim:50,near:false,pos:null,auto:true};
 Object.assign(st,load("au_view",{}));if(st.f==="part"||st.f==="chk")st.f="all";if(st.mg){st.adv=Object.assign({},st.adv||{},{mgs:st.mg==="fam"?["f2","f3"]:[st.mg]});st.mg=""}st.pos=null;st.near=false;
 const keep=()=>save("au_view",{estOn:st.estOn,src:st.src,f:st.f,city:st.city,auto:st.auto,view:st.view,base:st.base,mg:st.mg,lk:st.lk,adv:st.adv});
 function km(b){if(!st.pos||b.lat==null)return 1e9;const R=6371,r=Math.PI/180,dl=(b.lat-st.pos[0])*r,dg=(b.lng-st.pos[1])*r;const x=Math.sin(dl/2)**2+Math.cos(st.pos[0]*r)*Math.cos(b.lat*r)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
@@ -86,11 +86,11 @@ function routeBox(){if(!ROUTE||!ROUTE.ids.length)return "";const bs=ROUTE.ids.ma
   return `<div class="rwrap"><button class="rrow ${done?"done":""}" data-b="${b.id}"><span class="rn">${done?"✓":i+1}</span><span class="rb"><b>${esc(b.name)}</b>${(()=>{const c=clashTxt(b);return c?`<small class="clash">⚠ ${esc(c)}</small>`:""})()}<small>${(()=>{const t=bestBand(b);if(!t.b)return "";const BO=["朝","昼","夜"],past=BO.indexOf(t.b)<BO.indexOf(band3(Date.now()));return `<em class="rt ${past?"past":""}">${past?"今日はもう時間外・"+t.b+"がおすすめ":t.b+"がおすすめ"}（${t.why}）</em> `})()}${esc(b.addr)}</small></span><span class="rd">${d!=null?dtxt(d):""}</span></button><button class="rx" data-rt="${b.id}" aria-label="ルートから外す">×</button></div>`}).join("");
  const wp=bs.filter(b=>b.lat!=null);const url=wp.length?`https://www.google.com/maps/dir/?api=1&origin=${ROUTE.from[0]},${ROUTE.from[1]}&destination=${wp[wp.length-1].lat},${wp[wp.length-1].lng}${wp.length>1?"&waypoints="+wp.slice(0,-1).map(b=>b.lat+","+b.lng).join("|"):""}&travelmode=walking`:"";
  const nx=bs.find(b=>!Object.keys(todayWho(b)).includes(ME));
- return `<details class="route" ${st.rOpen!==false?"open":""} id="rdet"><summary class="rh"><b>🗺 今日のルート（${ROUTE.fav?"★":ROUTE.pick?"選んだ":""}${bs.length}件）</b>${nx?`<span class="rnext">次：${esc(nx.name)}</span>`:`<span class="rnext">全部回りました</span>`}<button id="routeClr">消す</button></summary>${rows}${url?`<a class="rgo" href="${url}" data-gm="${esc(wp.map(b=>b.lat+","+b.lng).join("|"))}" target="_blank" rel="noopener">Googleマップアプリで順番に案内（徒歩）</a>`:""}<div class="rfoot"><button class="rbtn3" id="selMode">☑ 一覧からまとめて足す</button><button class="rbtn3" id="routeMk">作り直す</button></div></details>`}
+ return `<details class="route" ${st.rOpen!==false?"open":""} id="rdet"><summary class="rh"><b>🗺 今日のルート（${ROUTE.fav?"★":ROUTE.pick?"選んだ":""}${bs.length}件）</b>${nx?`<span class="rnext">次：${esc(nx.name)}</span>`:`<span class="rnext">全部回りました</span>`}<button id="routeClr">消す</button></summary>${rows}${url?`<a class="rgo" href="${url}" data-gm="${esc(wp.map(b=>b.lat+","+b.lng).join("|"))}" target="_blank" rel="noopener">Googleマップアプリで順番に案内（徒歩）</a>`:""}<div class="rfoot"><button class="rbtn3" id="selMap">📍 地図から足す</button><button class="rbtn3" id="selMode">☑ 一覧から足す</button><button class="rbtn3" id="routeMk">作り直す</button></div></details>`}
 // 一覧からまとめて選ぶ（SEL が null でないあいだは、カードを押すと選ぶ）
 let SEL=null;
 function selBar(){const el=$("#selbar");if(!SEL){if(el)el.remove();return}const n=SEL.size,have=ROUTE?ROUTE.ids.length:0;
- const h=`<span>${n}件えらび中${have?`（ルートに${have}件）`:""}</span><button id="selCancel">やめる</button><button id="selGo" ${n?"":"disabled"}>ルートに入れる</button>`;
+ const h=`<span>${n}件えらび中${have?`（ルートに${have}件）`:""}</span><button id="selCancel">やめる</button><button id="selGo" ${n?"":"disabled"}>${have?"ルートに入れる":"ルートを作る"}</button>`;
  if(el)el.innerHTML=h;else{const d=document.createElement("div");d.id="selbar";d.className="selbar";d.innerHTML=h;document.body.appendChild(d)}}
 function routeAsk(){const n=myFavIds().length,m=filtered().filter(b=>b.lat!=null).length;
  $("#layer").innerHTML=`<div class="shade" id="shade"></div><div class="sheet" role="dialog" aria-label="今日のルート"><div class="in"><div class="grab"></div><b style="font-size:17px">🗺 どの物件でルートを作る？</b>
@@ -136,14 +136,17 @@ function drawMap(){const el=$("#map");if(!el||!window.L)return;if(MAP){MAP.remov
  const att='<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>';
  const base={map:L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",{maxZoom:18,attribution:att}),
   sat:L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",{maxZoom:18,attribution:att})};
- base[st.base||"map"].addTo(MAP);
- const Sw=L.Control.extend({options:{position:"bottomleft"},onAdd(){const d=L.DomUtil.create("div","mapsw");d.innerHTML=`<button data-base="map" aria-pressed="${(st.base||"map")==="map"}">地図</button><button data-base="sat" aria-pressed="${st.base==="sat"}">航空写真</button>`;L.DomEvent.disableClickPropagation(d);
-  d.onclick=e=>{const k=e.target.dataset.base;if(!k)return;MAP.removeLayer(base[st.base||"map"]);st.base=k;base[k].addTo(MAP);d.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.base===k));keep()};return d}});
+ base[st.base||"sat"].addTo(MAP);
+ const Sw=L.Control.extend({options:{position:"bottomleft"},onAdd(){const d=L.DomUtil.create("div","mapsw");d.innerHTML=`<button data-base="map" aria-pressed="${(st.base||"sat")==="map"}">地図</button><button data-base="sat" aria-pressed="${(st.base||"sat")==="sat"}">航空写真</button>`;L.DomEvent.disableClickPropagation(d);
+  d.onclick=e=>{const k=e.target.dataset.base;if(!k)return;MAP.removeLayer(base[st.base||"sat"]);st.base=k;base[k].addTo(MAP);d.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.base===k));keep()};return d}});
  new Sw().addTo(MAP);
  const a=filtered().filter(b=>b.lat!=null),pts=[];
  a.forEach(b=>{const col=b.kind==="c"?"#c92a2a":b.kind==="p"?"#c99a00":touched(b)?"#1f4e79":"#e8590c";
-  L.circleMarker([b.lat,b.lng],{radius:Math.min(12,5+Math.sqrt(b.nt)),color:"#fff",weight:1.5,fillColor:col,fillOpacity:.9}).addTo(MAP)
-   .bindPopup(`<b>${esc(b.name)}</b><br>${esc(b.addr)}${b.nt>1?"・"+b.nt+"棟":""}${roomTxt(b)&&(ROLE==="own"||isPub(b))?"<br>🏠 "+esc(roomTxt(b)):""}${st.pos?"<br>現在地から "+dtxt(km(b)):""}<button class="pop" data-b="${b.id}">この物件を開く</button>${(()=>{const c=clashTxt(b);return c?`<div class="clash" style="margin-top:6px">⚠ ${esc(c)}</div>`:""})()}<button class="pop rt ${inRoute(b.id)?"on":""}" data-rt="${b.id}">${inRoute(b.id)?"✓ ルートに入っています（外す）":"＋ 今日のルートに入れる"}</button><a class="gm" href="https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}" target="_blank" rel="noopener">Googleマップで道案内</a>`);pts.push([b.lat,b.lng])});
+  const r0=Math.min(12,5+Math.sqrt(b.nt)),sty=on=>({radius:r0+(on?4:0),color:on?"#2f9e44":"#fff",weight:on?4:1.5});
+  const mk=L.circleMarker([b.lat,b.lng],Object.assign({fillColor:col,fillOpacity:.9},sty(SEL&&SEL.has(b.id)))).addTo(MAP);
+  // 地図から選ぶモード：押すたびに選ぶ／外す（ふきだしは出さない）
+  if(SEL){mk.on("click",()=>{if(SEL.has(b.id))SEL.delete(b.id);else SEL.add(b.id);const x=sty(SEL.has(b.id));mk.setStyle(x);mk.setRadius(x.radius);selBar();toast((SEL.has(b.id)?"選びました：":"外しました：")+b.name)});pts.push([b.lat,b.lng]);return}
+  mk.bindPopup(`<b>${esc(b.name)}</b><br>${esc(b.addr)}${b.nt>1?"・"+b.nt+"棟":""}${roomTxt(b)&&(ROLE==="own"||isPub(b))?"<br>🏠 "+esc(roomTxt(b)):""}${st.pos?"<br>現在地から "+dtxt(km(b)):""}<button class="pop" data-b="${b.id}">この物件を開く</button>${(()=>{const c=clashTxt(b);return c?`<div class="clash" style="margin-top:6px">⚠ ${esc(c)}</div>`:""})()}<button class="pop rt ${inRoute(b.id)?"on":""}" data-rt="${b.id}">${inRoute(b.id)?"✓ ルートに入っています（外す）":"＋ 今日のルートに入れる"}</button><a class="gm" href="https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}" target="_blank" rel="noopener">Googleマップで道案内</a>`);pts.push([b.lat,b.lng])});
  a.forEach(b=>{if(Object.keys(todayWho(b)).length)L.circleMarker([b.lat,b.lng],{radius:Math.min(12,5+Math.sqrt(b.nt))+5,color:"#7048e8",weight:3,fill:false,interactive:false}).addTo(MAP)});
  if(ROUTE&&ROUTE.ids.length){const rp=[ROUTE.from].concat(ROUTE.ids.map(id=>BY[id]).filter(b=>b&&b.lat!=null).map(b=>[b.lat,b.lng]));L.polyline(rp,{color:"#e8590c",weight:3,dashArray:"6 6"}).addTo(MAP);
   ROUTE.ids.map(id=>BY[id]).filter(b=>b&&b.lat!=null).forEach((b,i)=>L.marker([b.lat,b.lng],{icon:L.divIcon({className:"rnum",html:String(i+1),iconSize:[22,22]})}).addTo(MAP).on("click",()=>{st.b=b.id;st.t=0;render()}))}
@@ -222,9 +225,9 @@ function list(){const a=filtered();const hc=st.near&&st.pos?hereCity():"";
  <div class="srow"><input class="search" id="q" type="search" enterkeyhint="search" placeholder="物件名・住所・メモで検索" value="${esc(st.q)}"><button class="advbtn" id="advBtn" aria-expanded="${!!st.advOpen}">条件${advN()?`<span class="advn">${advN()}</span>`:""}</button></div>
  ${st.advOpen?advBox():""}
  ${!st.advOpen&&advN()?`<div class="advsum"><span>条件：${advSum().map(esc).join("／")}</span><button id="advClr2">外す</button></div>`:""}
- ${ROUTE&&ROUTE.ids.length?routeBox():`<div class="rrow2"><button class="rbtn2" id="routeMk">🗺 今日のルートを作る</button><button class="rbtn2 sel" id="selMode">☑ 一覧から選ぶ</button></div>`}
+ ${ROUTE&&ROUTE.ids.length?routeBox():`<div class="rrow2"><button class="rbtn2" id="routeMk">🗺 今日のルートを作る</button><button class="rbtn2 sel" id="selMap">📍 地図から選ぶ</button></div>`}
  ${(()=>{const [k,t]=trNow();return ADV().trs.join(",")===k?"":`<div class="here"><span>🕒 ${t}</span><button data-trnow="${k}">この条件で出す</button></div>`})()}
- <div class="seg"><button data-view="list" aria-pressed="${st.view==="list"}">リスト</button><button data-view="map" aria-pressed="${st.view==="map"}">地図</button></div>
+ <div class="seg"><button data-view="map" aria-pressed="${st.view==="map"}">地図</button><button data-view="list" aria-pressed="${st.view==="list"}">リスト</button></div>
  <div id="res">${listRes(a)}</div>`}
 function listRes(a){return ` ${st.view==="map"?`<div id="map" role="region" aria-label="物件の地図"></div><div class="legend"><span><i style="background:#e8590c"></i>未訪問</span><span><i style="background:#1f4e79"></i>訪問した部屋あり</span><span><i style="background:#c99a00"></i>一部の棟だけDropbox</span><span><i style="background:#c92a2a"></i>Dropboxと同じか要確認</span><span><i style="background:#2f9e44"></i>現在地</span><span><i style="background:none;border:2px solid #7048e8"></i>今日だれかが回った</span></div><div class="small" style="margin-top:4px">${a.filter(b=>b.lat!=null).length.toLocaleString()}件を表示中</div>`:`<div class="small" style="margin-bottom:6px">${a.length.toLocaleString()}件（${st.near&&st.pos?"近い順":"棟数の多い順"}）</div>
  <div class="list">${a.slice(0,st.lim).map(b=>bCard(b)).join("")||emptyMsg()}</div>
@@ -488,8 +491,8 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
  if(t.dataset.trnow){st.adv=Object.assign(ADV(),{trs:[t.dataset.trnow]});st.lim=50;keep();return render()}
  if(t.dataset.tr&&st.b){st.trOpen=true;setTr(st.b,t.dataset.tr);const y=scrollY;render();scrollTo(0,y);return}
  if(t.dataset.fav){toggleFav(t.dataset.fav);const y=scrollY;render();scrollTo(0,y);return toast(isFav(t.dataset.fav)?"★ 気になるに入れました":"気になるから外しました")}
- if(t.id==="selMode"){SEL=new Set();st.v="list";st.b=null;if(st.view==="map")st.view="list";render();selBar();return toast("物件を押して選んでください")}
- if(t.id==="selCancel"){SEL=null;selBar();const y=scrollY;render();scrollTo(0,y);return}
+ if(t.id==="selMode"||t.id==="selMap"){SEL=new Set();st.v="list";st.b=null;if(t.id==="selMap")st.view="map";render();selBar();return toast(st.view==="map"?"地図の点を押して選んでください":"物件を押して選んでください")}
+ if(t.id==="selCancel"){SEL=null;selBar();if(MAP)st.mapView={c:MAP.getCenter(),z:MAP.getZoom()};const y=scrollY;render();scrollTo(0,y);return}
  if(t.id==="selGo"&&SEL){let ids=ROUTE?ROUTE.ids.slice():[];const add=[...SEL].filter(id=>!ids.includes(id)&&BY[id]&&BY[id].lat!=null);ids=ids.concat(add);let cut=0;if(ids.length>10){cut=ids.length-10;ids=ids.slice(0,10)}
   const from=ROUTE&&ROUTE.from||st.pos||[BY[ids[0]].lat,BY[ids[0]].lng];ROUTE={d:new Date().toDateString(),ids:orderByTime(ids.map(x=>BY[x]),from),from,pick:true};save("au_route",ROUTE);SEL=null;selBar();st.rOpen=true;render();scrollTo(0,0);
   const cl=ROUTE.ids.map(x=>BY[x]).filter(b=>routeWho(b.id).length).map(b=>b.name);return toast(add.length+"件入れて順番を組み直しました"+(cut?"（10件までなので"+cut+"件は入りませんでした）":"")+(cl.length?"。⚠ 被り："+cl.join("・"):""))}

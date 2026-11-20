@@ -12,14 +12,16 @@ const M_ = "'" + MEMBER_SHEET + "'", L_ = "'" + LOG_SHEET + "'", A_ = "'" + APP_
 const AREAS = ['大阪', '名古屋'];
 const APP_SHEETS = AREAS.map(a => APP_SHEET + '（' + a + '）');
 const appSheetOf_ = area => APP_SHEETS[Math.max(0, AREAS.indexOf(area))];
-// 別のスプレッドシートに置くエリア（2026-11-18〜 名古屋。見られる人を限るため）。そのファイルの ID はスクリプト プロパティ NAGOYA_BOOK_ID
+// 別のスプレッドシートに置くエリア（見られる人を限るため。2026-11-18〜 名古屋、2026-11-21〜 大阪）。エリアごとに1ファイル
+// そのファイルの ID はスクリプト プロパティ（BOOK_PROPS）。ファイル名は「通信インフラ事業（エリア）」
 // 元のスプレッドシートの集計（個人成績・ランキング・KPI）では、別ファイルのエリアの開通・前確NGは数えない（アプリの集計では数える）
-const EXTERNAL_AREAS = ['名古屋'];
-const EXTERNAL_BOOK_NAME = '通信インフラ事業（名古屋）';
+const EXTERNAL_AREAS = ['名古屋', '大阪'];
+const BOOK_PROPS = { '名古屋': 'NAGOYA_BOOK_ID', '大阪': 'OSAKA_BOOK_ID' };
+const bookName_ = area => '通信インフラ事業（' + area + '）';
 const LOCAL_AREAS = AREAS.filter(a => !EXTERNAL_AREAS.includes(a));
 // そのエリアの顧客進捗シート（別ファイルのエリアはそのファイルから。まだ移していなければ元のファイル）
 function appSheet_(area, ss) {
-  const name = appSheetOf_(area), id = EXTERNAL_AREAS.includes(area) && PropertiesService.getScriptProperties().getProperty('NAGOYA_BOOK_ID');
+  const name = appSheetOf_(area), id = EXTERNAL_AREAS.includes(area) && PropertiesService.getScriptProperties().getProperty(BOOK_PROPS[area]);
   return id ? SpreadsheetApp.openById(id).getSheetByName(name) : (ss || ss_()).getSheetByName(name);
 }
 const AREA_PICK = ['全体'].concat(AREAS);
@@ -192,38 +194,51 @@ function upgradeKentou() {
   Logger.log('個人成績に「検討」の列 / 提案＝トーク後NG＋検討＋獲得 / ランキング・KPIを作り直し');
 }
 
-// 名古屋の顧客進捗を別のスプレッドシートに移す（1回だけ実行。もう一度実行すると商材の選択肢だけ新しくする）：
-// 「通信インフラ事業（名古屋）」を作り（ID をスクリプト プロパティ NAGOYA_BOOK_ID に覚える）、このファイルの「顧客進捗（名古屋）」の行を移して、このファイルからは消す。
-// 集計のシートを作り直す（名古屋の開通・前確NGはこのファイルでは数えない）
-function migrateNagoya() {
+// エリアの顧客進捗を別のスプレッドシートに移す（エリアごとに1回だけ実行。もう一度実行すると商材の選択肢だけ新しくする）：
+// 「通信インフラ事業（エリア）」を作り（ID をスクリプト プロパティ BOOK_PROPS に覚える）、このファイルの「顧客進捗（エリア）」の行を移して、このファイルからは消す。
+// 集計のシートを作り直す（別ファイルのエリアの開通・前確NGはこのファイルでは数えない）
+function migrateNagoya() { migrateArea_('名古屋'); }
+function migrateOsaka() { migrateArea_('大阪'); }
+
+function migrateArea_(area) {
   const ss = SpreadsheetApp.getActiveSpreadsheet(), props = PropertiesService.getScriptProperties(), done = [];
-  let book, id = props.getProperty('NAGOYA_BOOK_ID');
+  let book, id = props.getProperty(BOOK_PROPS[area]);
   if (id) book = SpreadsheetApp.openById(id);
   else {
-    book = SpreadsheetApp.create(EXTERNAL_BOOK_NAME);
+    book = SpreadsheetApp.create(bookName_(area));
     book.setSpreadsheetTimeZone(TZ);
-    props.setProperty('NAGOYA_BOOK_ID', book.getId());
-    done.push('「' + EXTERNAL_BOOK_NAME + '」を作成 ' + book.getUrl());
+    props.setProperty(BOOK_PROPS[area], book.getId());
+    done.push('「' + bookName_(area) + '」を作成 ' + book.getUrl());
   }
-  EXTERNAL_AREAS.forEach(area => {
-    const name = appSheetOf_(area);
-    let dst = book.getSheetByName(name);
-    if (!dst) {
-      dst = book.getSheets()[0].getName().match(/^(シート|Sheet)\d+$/) && book.getSheets()[0].getLastRow() === 0 ? book.getSheets()[0].setName(name) : book.insertSheet(name);
-      setupApplications_(dst);
-      done.push(name + 'を作成');
-    } else productValidation_(book, dst);
+  const name = appSheetOf_(area);
+  let dst = book.getSheetByName(name);
+  if (!dst) {
+    dst = book.getSheets()[0].getName().match(/^(シート|Sheet)\d+$/) && book.getSheets()[0].getLastRow() === 0 ? book.getSheets()[0].setName(name) : book.insertSheet(name);
+    setupApplications_(dst);
+    done.push(name + 'を作成');
+  } else productValidation_(book, dst);
+  // 移している間にアプリから書き込まれないように、アプリと同じロックを取る
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
     const src = ss.getSheetByName(name);
     if (src) {
       const n = lastFilled_(src);
       if (n > 1) {
         const rows = src.getRange(2, 1, n - 1, APP_HEAD.length).getValues();
         dst.getRange(lastFilled_(dst) + 1, 1, rows.length, APP_HEAD.length).setValues(rows);
+        SpreadsheetApp.flush();
+        // 移した行数を確かめてから元を消す（足りなければ消さずに止める）
+        const moved = dst.getRange(2, APP_HEAD.length, lastFilled_(dst) - 1, 1).getValues().flat();
+        const missing = rows.filter(r => r[APP_HEAD.length - 1] && !moved.includes(r[APP_HEAD.length - 1])).length;
+        if (missing) throw new Error(missing + '行が移せていないので、元のシートは消していません');
       }
       ss.deleteSheet(src);
       done.push(name + 'の' + Math.max(0, n - 1) + '行を移して、このファイルから削除');
     }
-  });
+  } finally {
+    lock.releaseLock();
+  }
   const period = ss.getSheetByName(STATS_SHEET) ? ss.getSheetByName(STATS_SHEET).getRange('B1').getValue() : '';
   [STATS_SHEET, RANK_SHEET, KPI_ALL_SHEET, KPI_ONE_SHEET].forEach(n => { const sh = ss.getSheetByName(n); if (sh) ss.deleteSheet(sh); });
   setupStats_(ss.insertSheet(STATS_SHEET));
@@ -605,7 +620,8 @@ function logCount_(name, result, start, end, product) {
 
 // エリアごとの顧客進捗シートの式を足す。エリアを選んでいれば、そのエリアのシートだけ
 function bothApps_(one) {
-  // このファイルにある顧客進捗だけ（別ファイルの名古屋は入れない）。エリアを選んでいれば「全体」かそのエリアのときだけ足す
+  // このファイルにある顧客進捗だけ（別ファイルのエリアは入れない）。エリアを選んでいれば「全体」かそのエリアのときだけ足す
+  if (!LOCAL_AREAS.length) return '0'; // 全エリアが別ファイル：このファイルでは数えない（アプリで見る）
   const parts = LOCAL_AREAS.map(a => {
     const f = one("'" + appSheetOf_(a) + "'");
     return AREA_ ? '((' + AREA_ + '="全体")+(' + AREA_ + '="' + a + '"))*' + f : f;

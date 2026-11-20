@@ -131,7 +131,7 @@ function routeAsk(){const n=myFavIds().length,m=filtered().filter(b=>b.lat!=null
 function startRoute(fav){$("#layer").innerHTML="";if(!navigator.geolocation){const c=st.city&&cityCenter();return c?makeRoute(c,fav):toast("市区町村を選ぶと、その中心からルートを作れます")}toast("現在地を取得中…");navigator.geolocation.getCurrentPosition(p=>makeRoute([p.coords.latitude,p.coords.longitude],fav),()=>{const c=st.city&&cityCenter()||(fav&&(()=>{const b=BY[+myFavIds()[0]];return b&&b.lat!=null?[b.lat,b.lng]:null})());if(c){toast("現在地が使えないので、"+(st.city&&cityCenter()?st.city+"の中心":"★の1件目")+"から作ります");makeRoute(c,fav)}else toast("現在地が使えません。市区町村を選んでからもう一度押してください")},{enableHighAccuracy:true,timeout:15000,maximumAge:60000})}
 // ===== 今日の自分の成績（一覧の上）=====
 function myToday(){if(!ME)return "";const R=allRecs().filter(h=>h.w===ME&&isToday(h.t));const t=R.filter(h=>TALK.includes(h.s)).length,ok=R.filter(h=>h.s==="ok").length,kn=R.filter(h=>h.s==="kn").length;
- return `<button class="mytoday2" data-gomy="1">今日 <b>${R.length}</b>訪問・<b>${t}</b>話せた・<b>${kn}</b>検討・<b>${ok}</b>獲得<span>›</span></button>`}
+ return paceNote()+`<button class="mytoday2" data-gomy="1">今日 <b>${R.length}</b>訪問・<b>${t}</b>話せた・<b>${kn}</b>検討・<b>${ok}</b>獲得<span>›</span></button>`}
 // ===== 再訪おすすめ（今の時間なら会えそう）=====
 const band3=t=>{const h=new Date(t).getHours();return h<12?"朝":h<17?"昼":"夜"};
 const wk=t=>{const d=new Date(t).getDay();return d===0||d===6?"土日":"平日"};
@@ -404,12 +404,23 @@ function my(){if(!ME)return `<div class="note"><b>名前が選ばれていませ
  +sec("🚶 自分が回った物件",went.length,`<div class="list">${went.slice(0,30).map(x=>`<button class="bcard" data-b="${x.b.id}"><div class="top"><b>${esc(x.b.name)}</b>${isFav(x.b.id)?'<span class="tag favt">★</span>':""}</div><div class="addr">${esc(x.b.addr)}</div><div class="nums">最後に行った日 ${x.t?md(x.t):"-"}（${x.t?ago(x.t):"-"}）／${x.rooms.size}部屋${x.kn?"・検討 "+x.kn:""}${x.ok?"・契約 "+x.ok:""}</div></button>`).join("")}</div>`,"まだ記録がありません。")
  +sec("🕘 最近見た物件",rec.length,`<div class="list">${rec.map(bCard).join("")}</div>`,"まだありません。")}
 const md=t=>{const d=new Date(t);return (d.getMonth()+1)+"/"+d.getDate()};
+// ===== 今日の動き（人ごと）：訪問数・動いている時間・1時間あたり・最後の記録 =====
+// 動いている時間＝最初の記録から今まで（記録が止まってからは2時間まで数える＝休んでいる時間もペースに入る）。30分未満は30分として数える
+function teamToday(){const m={},now=Date.now();allRecs().forEach(h=>{if(!isToday(h.t))return;const x=m[h.w]||(m[h.w]={w:h.w,n:0,t:0,ok:0,a:h.t,z:h.t});x.n++;if(TALK.includes(h.s))x.t++;if(h.s==="ok")x.ok++;x.a=Math.min(x.a,h.t);x.z=Math.max(x.z,h.t)});
+ const a=Object.values(m).map(x=>{const end=Math.min(now,x.z+120*6e4),hr=Math.max(.5,(end-x.a)/36e5);return Object.assign(x,{hr,rate:x.n/hr,idle:(now-x.z)/6e4})}).sort((p,q)=>q.n-p.n);
+ const act=a.filter(x=>x.hr>=1),avg=act.length?act.reduce((s,x)=>s+x.rate,0)/act.length:0;return {a,avg}}
+// 自分への声かけ（自分の画面だけに出す。ほかの人には見えない）
+function paceNote(){if(!ME)return "";const {a,avg}=teamToday(),me=a.find(x=>x.w===ME),h=new Date().getHours();if(!me||h<9||h>=21)return "";
+ if(me.idle>=60)return `<div class="pace warn">⏱ 前の記録から${Math.floor(me.idle)}分たっています。次の部屋へ行きましょう！</div>`;
+ if(me.hr>=1&&avg&&me.rate<avg*.7){const need=Math.ceil(avg*me.hr-me.n);return `<div class="pace">💪 今日のペースは1時間あたり${me.rate.toFixed(1)}件。みんなの平均は${avg.toFixed(1)}件です。${need>0?"あと"+need+"件で平均に届きます！":""}</div>`}
+ if(a.length>1&&a[0].w===ME&&me.n>=10)return `<div class="pace good">👑 今日の訪問数は今あなたが一番です（${me.n}件）！</div>`;return ""}
 function news(){if(ROLE==="agency")return `<p class="lead">公開された物件は「物件」タブに出ます（いま ${VIS().length}件）。</p>`;
  const R=allRecs(),now=Date.now(),D=864e5;const ok=R.filter(h=>h.s==="ok");const ok30=ok.filter(h=>h.t&&now-h.t<30*D);
  const byB={};ok30.forEach(h=>{(byB[h.b.id]=byB[h.b.id]||{b:h.b,n:0,who:new Set()}).n++;byB[h.b.id].who.add(h.w)});const hotB=Object.values(byB).sort((a,b)=>b.n-a.n).slice(0,10);
  const byW={};ok30.forEach(h=>byW[h.w]=(byW[h.w]||0)+1);const rank=Object.entries(byW).sort((a,b)=>b[1]-a[1]);
  const p=B.filter(b=>b.kind==="p").length,c=B.filter(b=>b.kind==="c").length;
- return `<h3 style="font-size:15px">🎉 最近の成約</h3>${ok.length?`<div class="list">${ok.slice(0,15).map(h=>`<button class="ntc" data-b="${h.b.id}"><div class="when">${h.d}　${esc(h.w)}さんが獲得</div><b>${esc(h.b.name)}</b> ${h.tou?esc(h.tou)+" ":""}${h.room}号室<div class="addr">${esc(h.b.city)}${h.m?"・「"+esc(h.m)+"」":""}</div></button>`).join("")}</div>`:'<p class="small">まだ成約の記録はありません。記録で「契約」を選ぶとここに出ます。</p>'}
+ const TT=teamToday();return `<h3 style="font-size:15px">🚶 今日の訪問（みんな）</h3>${TT.a.length?`<div class="small" style="margin:-4px 0 6px">みんなの平均：1時間あたり ${TT.avg?TT.avg.toFixed(1):"-"}件</div><div class="list">${TT.a.map((x,i)=>`<div class="tdrow ${x.w===ME?"me":""}"><span class="tdn">${i===0&&x.n>=5?"👑":i+1}</span><b>${esc(x.w)}</b><span class="tdv"><b>${x.n}</b>訪問・話せた${x.t}${x.ok?"・獲得"+x.ok:""}<small>1時間あたり${x.rate.toFixed(1)}件（${Math.floor(x.hr)}時間${Math.round((x.hr%1)*60)}分）</small></span></div>`).join("")}</div>`:'<p class="small">今日の訪問はまだありません。</p>'}
+ <h3 style="font-size:15px">🎉 最近の成約</h3>${ok.length?`<div class="list">${ok.slice(0,15).map(h=>`<button class="ntc" data-b="${h.b.id}"><div class="when">${h.d}　${esc(h.w)}さんが獲得</div><b>${esc(h.b.name)}</b> ${h.tou?esc(h.tou)+" ":""}${h.room}号室<div class="addr">${esc(h.b.city)}${h.m?"・「"+esc(h.m)+"」":""}</div></button>`).join("")}</div>`:'<p class="small">まだ成約の記録はありません。記録で「契約」を選ぶとここに出ます。</p>'}
  <h3 style="font-size:15px">🔥 成約が上がっている物件（30日）</h3>${hotB.length?`<div class="list">${hotB.map(x=>`<button class="ntc" data-b="${x.b.id}"><b>${esc(x.b.name)}</b>　獲得 ${x.n}件<div class="addr">${esc(x.b.city)}・獲得：${[...x.who].map(esc).join("・")}</div></button>`).join("")}</div>`:'<p class="small">30日以内の成約はまだありません。</p>'}
  <h3 style="font-size:15px">データのお知らせ</h3><p class="small">11/15 取り込み：Dropboxに無い物件 ${B.filter(b=>b.kind==="n").length.toLocaleString()}件。一部の棟だけDropboxにある物件 ${p}件、Dropboxと同じか要確認の物件 ${c}件（カードに印が出ます）。</p>`}
 // 部屋の形を保存し、全部の棟の部屋ができていれば自社メモの戸数・階建を合わせる（手で入れた値は上書きしない）
@@ -420,7 +431,8 @@ function admin(){const all=[];Object.keys(H).forEach(k=>H[k].forEach(h=>all.push
  const by={};all.forEach(h=>{const x=by[h.w]||(by[h.w]={n:0,ok:0,kn:0,dg:0});x.n++;if(h.s==="ok")x.ok++;if(h.s==="kn")x.kn++;});Object.values(DGR).forEach(g=>{const x=by[g.w]||(by[g.w]={n:0,ok:0,kn:0,dg:0});x.dg++});
  const cityN={};B.forEach(b=>{const x=cityN[b.city]||(cityN[b.city]={n:0,t:0,go:0});x.n++;x.t+=b.nt;if(touched(b))x.go++});
  const bn=k=>{const b=BY[k.split("#")[0]];return b?b.name:k};
- return `<div class="adm"><p class="lead">PCで開く管理者画面のイメージです（スマホでも見られます）。</p>
+ const TT=teamToday();return `<div class="adm"><p class="lead">PCで開く管理者画面のイメージです（スマホでも見られます）。</p>
+ <h3>今日の動き</h3>${TT.a.length?`<table><tr><th>名前</th><th>訪問</th><th>話せた</th><th>獲得</th><th>1時間あたり</th><th>最初</th><th>最後の記録</th></tr>${TT.a.map(x=>`<tr class="${x.idle>=60&&x.idle<600?"idle":""}"><td>${esc(x.w)}</td><td>${x.n}</td><td>${x.t}</td><td>${x.ok}</td><td>${x.rate.toFixed(1)}${TT.avg&&x.hr>=1&&x.rate<TT.avg*.7?" ↓":""}</td><td>${hm(x.a)}</td><td>${hm(x.z)}（${Math.floor(x.idle)}分前）</td></tr>`).join("")}</table><div class="small">平均 1時間あたり ${TT.avg?TT.avg.toFixed(1):"-"}件。↓＝平均の7割より下。赤＝最後の記録から60分以上。</div>`:'<p class="small">今日の記録はまだありません。</p>'}
  <div class="kpis"><div class="kpi"><div class="v">${B.length.toLocaleString()}</div><div class="l">対象物件</div></div><div class="kpi"><div class="v">${B.reduce((s,b)=>s+b.nt,0).toLocaleString()}</div><div class="l">対象棟数</div></div><div class="kpi"><div class="v">${B.filter(touched).length}</div><div class="l">訪問を始めた物件</div></div><div class="kpi"><div class="v">${all.filter(h=>h.s==="ok").length}</div><div class="l">契約</div></div></div>
  <h3>物件一覧（PC向け）</h3>${(()=>{const A=st.adm||{},a=admRows(),pg=A.n||100;const cols=["市区町村","物件名","棟数","Dropbox","間取り","家賃万円","築年数","オートロック","訪問済み部屋","契約","最終訪問"];
  return `<div class="tbar"><select id="a_city"><option value="">市区町村：すべて</option>${CITIES.map(c=>`<option ${c===A.city?"selected":""}>${c}</option>`).join("")}</select>

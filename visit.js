@@ -83,10 +83,15 @@ function routeToggle(id){id=+id;const b=BY[id];if(!b||b.lat==null)return toast("
  const c=inRoute(id)&&clashTxt(b);toast(inRoute(id)?(c?"⚠ "+c:"ルートに入れました（"+ROUTE.ids.length+"件・順番を組み直しました）"):"ルートから外しました")}
 function routeBox(){if(!ROUTE||!ROUTE.ids.length)return "";const bs=ROUTE.ids.map(id=>BY[id]).filter(Boolean);let prev=ROUTE.from;
  const rows=bs.map((b,i)=>{const d=b.lat!=null&&prev?kmAB(prev,[b.lat,b.lng]):null;if(b.lat!=null)prev=[b.lat,b.lng];const done=Object.keys(todayWho(b)).includes(ME);
-  return `<button class="rrow ${done?"done":""}" data-b="${b.id}"><span class="rn">${done?"✓":i+1}</span><span class="rb"><b>${esc(b.name)}</b>${(()=>{const c=clashTxt(b);return c?`<small class="clash">⚠ ${esc(c)}</small>`:""})()}<small>${(()=>{const t=bestBand(b);if(!t.b)return "";const BO=["朝","昼","夜"],past=BO.indexOf(t.b)<BO.indexOf(band3(Date.now()));return `<em class="rt ${past?"past":""}">${past?"今日はもう時間外・"+t.b+"がおすすめ":t.b+"がおすすめ"}（${t.why}）</em> `})()}${esc(b.addr)}</small></span><span class="rd">${d!=null?dtxt(d):""}</span></button>`}).join("");
+  return `<div class="rwrap"><button class="rrow ${done?"done":""}" data-b="${b.id}"><span class="rn">${done?"✓":i+1}</span><span class="rb"><b>${esc(b.name)}</b>${(()=>{const c=clashTxt(b);return c?`<small class="clash">⚠ ${esc(c)}</small>`:""})()}<small>${(()=>{const t=bestBand(b);if(!t.b)return "";const BO=["朝","昼","夜"],past=BO.indexOf(t.b)<BO.indexOf(band3(Date.now()));return `<em class="rt ${past?"past":""}">${past?"今日はもう時間外・"+t.b+"がおすすめ":t.b+"がおすすめ"}（${t.why}）</em> `})()}${esc(b.addr)}</small></span><span class="rd">${d!=null?dtxt(d):""}</span></button><button class="rx" data-rt="${b.id}" aria-label="ルートから外す">×</button></div>`}).join("");
  const wp=bs.filter(b=>b.lat!=null);const url=wp.length?`https://www.google.com/maps/dir/?api=1&origin=${ROUTE.from[0]},${ROUTE.from[1]}&destination=${wp[wp.length-1].lat},${wp[wp.length-1].lng}${wp.length>1?"&waypoints="+wp.slice(0,-1).map(b=>b.lat+","+b.lng).join("|"):""}&travelmode=walking`:"";
  const nx=bs.find(b=>!Object.keys(todayWho(b)).includes(ME));
- return `<details class="route" ${st.rOpen!==false?"open":""} id="rdet"><summary class="rh"><b>🗺 今日のルート（${ROUTE.fav?"★":ROUTE.pick?"選んだ":""}${bs.length}件）</b>${nx?`<span class="rnext">次：${esc(nx.name)}</span>`:`<span class="rnext">全部回りました</span>`}<button id="routeClr">消す</button></summary>${rows}${url?`<a class="rgo" href="${url}" data-gm="${esc(wp.map(b=>b.lat+","+b.lng).join("|"))}" target="_blank" rel="noopener">Googleマップアプリで順番に案内（徒歩）</a>`:""}<button class="rbtn3" id="routeMk">作り直す</button></details>`}
+ return `<details class="route" ${st.rOpen!==false?"open":""} id="rdet"><summary class="rh"><b>🗺 今日のルート（${ROUTE.fav?"★":ROUTE.pick?"選んだ":""}${bs.length}件）</b>${nx?`<span class="rnext">次：${esc(nx.name)}</span>`:`<span class="rnext">全部回りました</span>`}<button id="routeClr">消す</button></summary>${rows}${url?`<a class="rgo" href="${url}" data-gm="${esc(wp.map(b=>b.lat+","+b.lng).join("|"))}" target="_blank" rel="noopener">Googleマップアプリで順番に案内（徒歩）</a>`:""}<div class="rfoot"><button class="rbtn3" id="selMode">☑ 一覧からまとめて足す</button><button class="rbtn3" id="routeMk">作り直す</button></div></details>`}
+// 一覧からまとめて選ぶ（SEL が null でないあいだは、カードを押すと選ぶ）
+let SEL=null;
+function selBar(){const el=$("#selbar");if(!SEL){if(el)el.remove();return}const n=SEL.size,have=ROUTE?ROUTE.ids.length:0;
+ const h=`<span>${n}件えらび中${have?`（ルートに${have}件）`:""}</span><button id="selCancel">やめる</button><button id="selGo" ${n?"":"disabled"}>ルートに入れる</button>`;
+ if(el)el.innerHTML=h;else{const d=document.createElement("div");d.id="selbar";d.className="selbar";d.innerHTML=h;document.body.appendChild(d)}}
 function routeAsk(){const n=myFavIds().length,m=filtered().filter(b=>b.lat!=null).length;
  $("#layer").innerHTML=`<div class="shade" id="shade"></div><div class="sheet" role="dialog" aria-label="今日のルート"><div class="in"><div class="grab"></div><b style="font-size:17px">🗺 どの物件でルートを作る？</b>
  <button class="save" id="rtFav" ${n?"":"disabled"} style="margin-top:12px">★ 気になる（${n}件）で作る</button><div class="small" style="margin:4px 2px 0">会えそうな時間帯（前に話せた時間・単身は夜／ファミリーは昼）ごとに分けて、近い順につなぎます。</div>
@@ -217,7 +222,7 @@ function list(){const a=filtered();const hc=st.near&&st.pos?hereCity():"";
  <div class="srow"><input class="search" id="q" type="search" enterkeyhint="search" placeholder="物件名・住所・メモで検索" value="${esc(st.q)}"><button class="advbtn" id="advBtn" aria-expanded="${!!st.advOpen}">条件${advN()?`<span class="advn">${advN()}</span>`:""}</button></div>
  ${st.advOpen?advBox():""}
  ${!st.advOpen&&advN()?`<div class="advsum"><span>条件：${advSum().map(esc).join("／")}</span><button id="advClr2">外す</button></div>`:""}
- ${ROUTE&&ROUTE.ids.length?routeBox():`<button class="rbtn2" id="routeMk">🗺 今日のルートを作る</button>`}
+ ${ROUTE&&ROUTE.ids.length?routeBox():`<div class="rrow2"><button class="rbtn2" id="routeMk">🗺 今日のルートを作る</button><button class="rbtn2 sel" id="selMode">☑ 一覧から選ぶ</button></div>`}
  ${(()=>{const [k,t]=trNow();return ADV().trs.join(",")===k?"":`<div class="here"><span>🕒 ${t}</span><button data-trnow="${k}">この条件で出す</button></div>`})()}
  <div class="seg"><button data-view="list" aria-pressed="${st.view==="list"}">リスト</button><button data-view="map" aria-pressed="${st.view==="map"}">地図</button></div>
  <div id="res">${listRes(a)}</div>`}
@@ -320,7 +325,7 @@ function typeOf(b){const s=((MM[b.id]||{}).shubetsu||"")+" "+((b.dm||{}).shubets
 const TYPE_TXT={V:"タイプV（最大100M）",G:"タイプG（1G・速い）",VG:"タイプV・G"};
 const typeTag=b=>{const t=typeOf(b);return t?`<span class="tag ty ty-${t}">${t==="VG"?"V・G":t}</span>`:""};
 // 物件のカード（一覧・マイページで使う）
-function bCard(b){const ks=allRooms(b),c=stats(ks),fn=favN(b.id);return `<div class="bwrap"><button class="fstar" data-fav="${b.id}" aria-pressed="${isFav(b.id)}" aria-label="気になる">${isFav(b.id)?"★":"☆"}${fn?`<small>${fn}人</small>`:""}</button><button class="bcard" data-b="${b.id}">
+function bCard(b){const ks=allRooms(b),c=stats(ks),fn=favN(b.id);const sel=SEL&&SEL.has(b.id);return `<div class="bwrap ${SEL?"selm":""} ${sel?"on":""}">${SEL?`<button class="sck" data-sel="${b.id}" aria-pressed="${sel}" aria-label="選ぶ">${sel?"✓":""}</button>`:""}<button class="fstar" data-fav="${b.id}" aria-pressed="${isFav(b.id)}" aria-label="気になる">${isFav(b.id)?"★":"☆"}${fn?`<small>${fn}人</small>`:""}</button><button class="bcard" data-b="${b.id}">
   <div class="top"><b>${esc(b.name)}</b>${typeTag(b)}${isFav(b.id)?"":""}${isHot(b)?'<span class="tag hot">🔥未訪問</span>':""}${KIND[b.kind]}${VTAG(b)}${MM[b.id]&&MEMOF.some(([k])=>MM[b.id][k])&&ROLE==="own"?'<span class="tag as">📝メモ</span>':""}${(()=>{const w=Object.keys(todayWho(b));return w.length?`<span class="tag tdy">今日 ${esc(w.join("・"))}</span>`:""})()}${st.near&&st.pos?`<span class="dist">${dtxt(km(b))}</span>`:""}</div>
   <div class="addr">${esc(b.addr)}${b.nt>1?`・${b.nt}棟`:""}</div>${roomTxt(b)&&(ROLE==="own"||isPub(b))?`<div class="nums" style="color:var(--fg)">🏠 ${esc(roomTxt(b))}</div>`:""}${(()=>{const t=trTags(b,3);return t?`<div class="trtags sm">${t}</div>`:""})()}${ks.length?barHTML(ks)+`<div class="nums">未訪問 ${c.mi}／不在 ${c.fu}／検討 ${c.kn}／契約 ${c.ok}${c.dg?`／<span style="color:var(--r-ke-t);font-weight:700">⚠${c.dg}</span>`:""}</div>`:""}${leftTxt(b)}${scoreTxt(b)}</button></div>`}
 function leftTxt(b){const r=leftOf(b);if(r.n==null)return "";return `<div class="nums left">まだ回っていない部屋 <b>${r.est?"約":""}${r.n}</b>${r.est?"戸（全部まだ）":`部屋（${Math.round(r.p*100)}%）`}</div>`}
@@ -460,7 +465,7 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
  if(t.id==="shade")return closeRoom();
  if(t.dataset.undo){t.closest(".toast").remove();const k=t.dataset.undo;if(st.room&&st.room!==k)closeRoom();delRec(k,+t.dataset.i);if(st.room===k)openRoom(k);return}
  if(t.dataset.del!=null&&st.room){const k=st.room,i=+t.dataset.del;if(st.delAsk!==k+"/"+i){st.delAsk=k+"/"+i;t.textContent="もう一度で取り消し";return}st.delAsk=null;delRec(k,i);return openRoom(k)}
- if(t.classList.contains("tab")&&t.dataset.v){STK.length=0;const fromB=st.b&&t.dataset.v==="list";st.editMemo=false;st.ed=false;st.v=t.dataset.v;st.b=null;render();pushH();if(fromB&&listY.y)setTimeout(()=>scrollTo(0,listY.y),0);return}
+ if(t.classList.contains("tab")&&t.dataset.v){if(SEL){SEL=null;selBar()}STK.length=0;const fromB=st.b&&t.dataset.v==="list";st.editMemo=false;st.ed=false;st.v=t.dataset.v;st.b=null;render();pushH();if(fromB&&listY.y)setTimeout(()=>scrollTo(0,listY.y),0);return}
  if(t.dataset.src){st.src=t.dataset.src;st.lim=50;keep();const y=scrollY;render();scrollTo(0,y);return}
  if(t.dataset.mg!==undefined){const k=t.dataset.mg;st.mg="";st.adv=Object.assign(ADV(),{mgs:k==="fam"?["f2","f3"]:k?[k]:[]});st.lim=50;keep();return render()}
  if(t.dataset.lk!==undefined){st.lk=t.dataset.lk;st.lim=50;keep();const y=scrollY;render();scrollTo(0,y);return}
@@ -483,6 +488,12 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
  if(t.dataset.trnow){st.adv=Object.assign(ADV(),{trs:[t.dataset.trnow]});st.lim=50;keep();return render()}
  if(t.dataset.tr&&st.b){st.trOpen=true;setTr(st.b,t.dataset.tr);const y=scrollY;render();scrollTo(0,y);return}
  if(t.dataset.fav){toggleFav(t.dataset.fav);const y=scrollY;render();scrollTo(0,y);return toast(isFav(t.dataset.fav)?"★ 気になるに入れました":"気になるから外しました")}
+ if(t.id==="selMode"){SEL=new Set();st.v="list";st.b=null;if(st.view==="map")st.view="list";render();selBar();return toast("物件を押して選んでください")}
+ if(t.id==="selCancel"){SEL=null;selBar();const y=scrollY;render();scrollTo(0,y);return}
+ if(t.id==="selGo"&&SEL){let ids=ROUTE?ROUTE.ids.slice():[];const add=[...SEL].filter(id=>!ids.includes(id)&&BY[id]&&BY[id].lat!=null);ids=ids.concat(add);let cut=0;if(ids.length>10){cut=ids.length-10;ids=ids.slice(0,10)}
+  const from=ROUTE&&ROUTE.from||st.pos||[BY[ids[0]].lat,BY[ids[0]].lng];ROUTE={d:new Date().toDateString(),ids:orderByTime(ids.map(x=>BY[x]),from),from,pick:true};save("au_route",ROUTE);SEL=null;selBar();st.rOpen=true;render();scrollTo(0,0);
+  const cl=ROUTE.ids.map(x=>BY[x]).filter(b=>routeWho(b.id).length).map(b=>b.name);return toast(add.length+"件入れて順番を組み直しました"+(cut?"（10件までなので"+cut+"件は入りませんでした）":"")+(cl.length?"。⚠ 被り："+cl.join("・"):""))}
+ if(SEL&&(t.dataset.sel||(t.dataset.b&&t.closest(".bwrap")))){const id=+(t.dataset.sel||t.dataset.b);if(SEL.has(id))SEL.delete(id);else SEL.add(id);const y=scrollY;render();scrollTo(0,y);selBar();return}
  if(t.dataset.rt){routeToggle(t.dataset.rt);if(MAP)st.mapView={c:MAP.getCenter(),z:MAP.getZoom()};const y=scrollY;render();scrollTo(0,y);return}
  if(t.id==="routeMk"){return routeAsk()}
  if(t.id==="rtFav"){return startRoute(true)}

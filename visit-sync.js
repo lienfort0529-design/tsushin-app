@@ -56,7 +56,7 @@
   // 結果の記号（visit.js）とシートの言葉
   const RL = { fu: '不在', ih: 'インターホンNG', fr: 'フロントNG', so: 'トーク後NG', kn: '検討', ok: '契約', ka: '加入済み', ak: '空室' };
   const LR = Object.fromEntries(Object.entries(RL).map(([k, v]) => [v, k]));
-  const KEYS = { au_hist: 'H', au_layout: 'LAY', au_memo: 'MM', au_danger: 'DGR' };
+  const KEYS = { au_hist: 'H', au_layout: 'LAY', au_memo: 'MM', au_danger: 'DGR', au_favs: 'FV' };
 
   // ===== カウンターにも数える =====
   // 訪問の結果 → カウンターの結果。空室は数えない。検討はカウンターに「検討」があるときだけ
@@ -91,12 +91,12 @@
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
   // 画面が持っている入れ物（visit.js の H・LAY・MM・DGR）。中身だけ入れ替える
-  const live = { H: {}, LAY: {}, MM: {}, DGR: {} };
+  const live = { H: {}, LAY: {}, MM: {}, DGR: {}, FV: {} };
   let prev, queue = get(K.q, []), onData = null, sending = false, waiting = false;
 
   // シートの全部（visitPull の形）→ 画面の形
   function fromServer(d) {
-    const o = { H: {}, LAY: d.lays || {}, MM: d.memos || {}, DGR: {} };
+    const o = { H: {}, LAY: d.lays || {}, MM: d.memos || {}, DGR: {}, FV: d.favs || clone(live.FV) };  // 古いApps Script（favs を返さない）のときは、スマホの★をそのまま残す
     (d.recs || []).forEach(([t, w, key, res, m, id]) => (o.H[key] = o.H[key] || []).push({ id: id, s: LR[res] || res, d: md(t), w: w, t: t, m: m }));
     Object.keys(d.danger || {}).forEach(k => { const x = d.danger[k]; o.DGR[k] = { w: x.w, d: md(x.t), t: x.t, m: x.m }; });
     return o;
@@ -107,6 +107,7 @@
     if (p.op === 'del') Object.keys(o.H).forEach(k => { o.H[k] = o.H[k].filter(x => x.id !== p.rid); if (!o.H[k].length) delete o.H[k]; });
     if (p.op === 'lay') { if (p.lay == null) delete o.LAY[p.key]; else o.LAY[p.key] = p.lay; }
     if (p.op === 'memo') o.MM[p.bid] = p.memo;
+    if (p.op === 'fav') { const x = o.FV[p.bid] = Object.assign({}, o.FV[p.bid] || {}); if (p.on) x[p.name] = p.ts; else delete x[p.name]; if (!Object.keys(x).length) delete o.FV[p.bid]; }
     if (p.op === 'dgr') { if (p.on) o.DGR[p.key] = { w: p.name, d: md(p.ts), t: p.ts, m: p.memo }; else delete o.DGR[p.key]; }
   }
   function fill(o) {
@@ -126,6 +127,8 @@
       if (JSON.stringify(a[k]) === JSON.stringify(b[k])) return;
       if (n === 'LAY') ops.push({ op: 'lay', id: uid(), name: name, ts: ts, key: k, lay: b[k] == null ? null : b[k] });
       if (n === 'MM') ops.push({ op: 'memo', id: uid(), name: name, ts: ts, bid: k, memo: b[k] || {} });
+      // ★気になる：自分の分だけ送る（ほかの人の★はシートから来るだけ）
+      if (n === 'FV') { const on = !!(b[k] && b[k][name]), was = !!(a[k] && a[k][name]); if (on !== was) ops.push({ op: 'fav', id: uid(), name: name, ts: ts, bid: k, on: on }); }
       if (n === 'DGR') ops.push({ op: 'dgr', id: uid(), name: name, ts: ts, key: k, on: !!b[k], memo: b[k] ? b[k].m || '' : '' });
     });
     return ops;

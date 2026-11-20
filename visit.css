@@ -240,3 +240,8 @@ header{background:var(--ink);color:#fff;border:0;box-shadow:inset 0 -3px 0 var(-
 .tyrow b{color:var(--fg)}
 .ty-V{color:#1d4f80}.ty-G{color:#8a5a00}.ty-VG{color:#4b3a8a}
 .tag.ty{background:#eef3f9;font-weight:700}.tag.ty-G{background:#fff4d6}.tag.ty-VG{background:#efeaf9}
+
+/* 絞り込みまわりの文字を小さく（スマホで変な改行が出ないように）。2026-11-20 メンバーの声 */
+.seg button{font-size:13px;padding:7px 4px;line-height:1.3;flex:1 1 auto}
+.chip{font-size:13px;padding:7px 12px}
+@media (max-width:400px){.seg button{font-size:12px;padding:7px 2px;letter-spacing:-.02em}}

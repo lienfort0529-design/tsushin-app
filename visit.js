@@ -241,7 +241,7 @@ const FDB=[["part","一部の棟だけDropboxにある"],["chk","Dropboxと同�
 // 入っている条件を短い言葉で（条件を閉じているときに一覧の上に出す）
 function advSum(){const D=ADV(),o=[];if((st.src||"t")==="d")o.push("上位店の公開物件");if(st.src==="a")o.push("自社＋上位店");if(st.f&&st.f!=="all")o.push((FST.concat(FDB).find(x=>x[0]===st.f)||[,""])[1]);if(D.mgs.length)o.push(D.mgs.map(k=>(MG.find(x=>x[0]===k)||[,""])[1]).join("・"));if(st.lk)o.push(st.lk==="yes"?"🔒オートロックあり":"オートロックなし");if(D.trs&&D.trs.length)o.push(D.trs.map(k=>TRL[k]).join("・"));if(D.kosu)o.push(D.kosu+"戸以上");if(D.left)o.push("まだの部屋 "+LEFT.find(x=>x[0]===D.left)[1]);return o}
 function advBox(){const D=ADV(),n=filtered().length;const ck=(on,attr,l)=>`<button class="chip" ${attr} aria-pressed="${on}">${l}</button>`;
- return `<div class="adv"><div class="advh">物件の種類</div><div class="seg" style="margin-top:6px">${[["t","自社リスト物件","Dropboxに無い"],["d","上位店の公開物件","Dropboxにある"],["a","すべて",""]].map(([k,l,n])=>`<button data-src="${k}" aria-pressed="${(st.src||"t")===k}">${l}${n?`<small class="segn">${n}</small>`:""}</button>`).join("")}</div>
+ return `<div class="adv"><div class="advtop"><div class="advh">物件の種類</div>${advN()?`<button class="advclr" id="advClrTop">条件をクリア</button>`:""}</div><div class="seg" style="margin-top:6px">${[["t","自社リスト物件","Dropboxに無い"],["d","上位店の公開物件","Dropboxにある"],["a","すべて",""]].map(([k,l,n])=>`<button data-src="${k}" aria-pressed="${(st.src||"t")===k}">${l}${n?`<small class="segn">${n}</small>`:""}</button>`).join("")}</div>
  <div class="advh">訪問の進み具合</div><div class="chips">${FST.map(([k,l])=>ck((st.f||"all")===k,`data-f="${k}"`,l)).join("")}</div>
  <div class="advh">間取り（いくつでも）</div><div class="chips">${MG.slice(1).map(([k,l])=>ck(D.mgs.includes(k),`data-advmg="${k}"`,l)).join("")}</div>
  <div class="advh">オートロック</div><div class="chips">${[["","指定なし"],["yes","🔒あり"],["no","なし"]].map(([k,l])=>ck((st.lk||"")===k,`data-lk="${k}"`,l)).join("")}</div>
@@ -537,13 +537,13 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
  if(t.id==="routeClr"){ROUTE=null;save("au_route",null);return render()}
  if(t.dataset.qs&&st.qk){return quickRec(st.qk,t.dataset.qs)}
  if(t.id==="advBtn"){st.advOpen=!st.advOpen;const y=scrollY;render();scrollTo(0,y);return}
- if(t.dataset.advmg||t.dataset.advtr||t.dataset.advl!==undefined||t.dataset.advk!==undefined||t.dataset.advb||t.id==="advClr"){const D=ADV();
+ if(t.dataset.advmg||t.dataset.advtr||t.dataset.advl!==undefined||t.dataset.advk!==undefined||t.dataset.advb||t.id==="advClr"||t.id==="advClrTop"){const D=ADV();
   if(t.dataset.advl!==undefined)D.left=t.dataset.advl;
   if(t.dataset.advtr){const k=t.dataset.advtr;D.trs=D.trs.includes(k)?D.trs.filter(x=>x!==k):D.trs.concat(k)}
   if(t.dataset.advmg){const k=t.dataset.advmg;D.mgs=D.mgs.includes(k)?D.mgs.filter(x=>x!==k):D.mgs.concat(k);if(D.mgs.length)st.mg=""}
   if(t.dataset.advk!==undefined)D.kosu=+t.dataset.advk;
   if(t.dataset.advb)D[t.dataset.advb]=!D[t.dataset.advb];
-  if(t.id==="advClr"){Object.assign(D,{mgs:[],kosu:0,left:"",unk:true,trs:[]});st.src="t";st.f="all";st.lk=""}
+  if(t.id==="advClr"||t.id==="advClrTop"){Object.assign(D,{mgs:[],kosu:0,left:"",unk:true,trs:[]});st.src="t";st.f="all";st.lk=""}
   st.adv=D;st.lim=50;keep();const y=scrollY;render();scrollTo(0,y);return}
  if(t.id==="advClr2"){st.adv=null;st.src="t";st.f="all";st.lk="";st.mg="";st.lim=50;keep();return render()}
  if(t.id==="advGo"){st.advOpen=false;keep();render();const r=document.getElementById("res");if(r)r.scrollIntoView();return}

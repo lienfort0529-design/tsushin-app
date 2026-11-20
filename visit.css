@@ -345,3 +345,5 @@ header{background:var(--ink);color:#fff;border:0;box-shadow:inset 0 -3px 0 var(-
 .nowbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
 .mytoday2{display:flex;align-items:baseline;gap:2px;width:100%;margin-top:8px;padding:4px 2px;border:0;background:none;color:var(--sub);font:inherit;font-size:12px;cursor:pointer;text-align:left}
 .mytoday2 b{color:var(--accent);font-size:14px;margin-left:2px}.mytoday2 span{margin-left:auto;font-size:16px}
+.bcard .meta{display:flex;flex-wrap:wrap;gap:4px;align-items:center}.bcard .meta .tag{font-size:10px;padding:1px 6px}.bcard .meta .trt{font-size:10px;padding:1px 7px}
+.nums b.lft{color:var(--accent);font-size:13px}

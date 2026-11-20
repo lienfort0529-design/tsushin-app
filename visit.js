@@ -64,7 +64,7 @@ function orderByTime(cand,pos){const BO=["朝","昼","夜"],now=BO.indexOf(band3
 function makeRoute(pos,fav){if(fav){const cand=myFavIds().map(id=>BY[+id]).filter(b=>b&&b.lat!=null);if(!cand.length){toast("★気になるに物件がありません");return}const ids=orderByTime(cand,pos).slice(0,10);ROUTE={d:new Date().toDateString(),ids,from:pos,fav:true};save("au_route",ROUTE);render();toast("★"+ids.length+"件を、会えそうな時間帯と近さで並べました");return}
  const cand=filtered().filter(b=>b.lat!=null);if(!cand.length){toast("いまの条件に地図に出せる物件がありません");return}
  const out=[],used=new Set();let cur=pos;for(let i=0;i<8;i++){let m=null,d=1e9;cand.forEach(b=>{if(used.has(b.id))return;const x=kmAB(cur,[b.lat,b.lng]);if(x<d){d=x;m=b}});if(!m)break;used.add(m.id);out.push(m.id);cur=[m.lat,m.lng]}
- ROUTE={d:new Date().toDateString(),ids:out,from:pos};save("au_route",ROUTE);st.lim=50;render();toast("いまの条件で、近い順に"+out.length+"件つなぎました")}
+ ROUTE={d:new Date().toDateString(),ids:orderByTime(out.map(id=>BY[id]),pos),from:pos};save("au_route",ROUTE);st.lim=50;render();toast("おまかせで"+out.length+"件、会えそうな時間帯と近さで並べました")}
 // 地図や物件ページで「ルートに入れる」を押していくと、そのたびに回る順番を組み直す（会えそうな時間帯→近い順、最大10件）
 // 今日のルートは全員で共有（RTS = {名前: {d 日付, ids}}）→ ほかの人のルートと被っていたら知らせる
 const RTS=load("au_routes",{});
@@ -117,7 +117,7 @@ function routeBox(){if(!ROUTE||!ROUTE.ids.length)return "";const bs=ROUTE.ids.ma
  const wp=bs.filter(b=>b.lat!=null);const url=wp.length?`https://www.google.com/maps/dir/?api=1&origin=${ROUTE.from[0]},${ROUTE.from[1]}&destination=${wp[wp.length-1].lat},${wp[wp.length-1].lng}${wp.length>1?"&waypoints="+wp.slice(0,-1).map(b=>b.lat+","+b.lng).join("|"):""}&travelmode=walking`:"";
  const nx=bs.find(b=>!Object.keys(todayWho(b)).includes(ME));
  return `<details class="route" ${st.rOpen!==false?"open":""} id="rdet"><summary class="rh"><b>🗺 今日のルート（${ROUTE.fav?"★":ROUTE.pick?"選んだ":""}${bs.length}件）</b>${nx?`<span class="rnext">次：${esc(nx.name)}</span>`:`<span class="rnext">全部回りました</span>`}<button id="routeClr">消す</button></summary>${rows}${url?`<a class="rgo" href="${url}" data-gm="${esc(wp.map(b=>b.lat+","+b.lng).join("|"))}" target="_blank" rel="noopener">Googleマップアプリで順番に案内（徒歩）</a>`:""}${(()=>{const g=routeSuggest();return g.length?`<div class="rsug"><div class="rsh">📌 ここも寄れそう</div>${g.map(x=>`<div class="rsr"><button class="rsb" data-b="${x.b.id}"><b>${esc(x.b.name)}</b><small>${esc(x.why)}</small></button><button class="rsa" data-rt="${x.b.id}">＋入れる</button></div>`).join("")}</div>`:""})()}
- <div class="rfoot"><button class="rbtn3" id="selMap">📍 地図から足す</button><button class="rbtn3" id="selMode">☑ 一覧から足す</button><button class="rbtn3" id="routeMk">作り直す</button></div></details>`}
+ <div class="rfoot"><button class="rbtn3" id="selMap">📍 地図から足す</button><button class="rbtn3" id="routeMk">作り直す</button></div></details>`}
 // 一覧からまとめて選ぶ（SEL が null でないあいだは、カードを押すと選ぶ）
 let SEL=null;
 function selBar(){const el=$("#selbar");if(!SEL){if(el)el.remove();return}const n=SEL.size,have=ROUTE?ROUTE.ids.length:0;
@@ -127,8 +127,7 @@ function routeAsk(){const n=myFavIds().length,m=filtered().filter(b=>b.lat!=null
  $("#layer").innerHTML=`<div class="shade" id="shade"></div><div class="sheet" role="dialog" aria-label="今日のルート"><div class="in"><div class="grab"></div><b style="font-size:17px">🗺 どの物件でルートを作る？</b>
  <button class="save" id="rtFav" ${n?"":"disabled"} style="margin-top:12px">★ 気になる（${n}件）で作る</button><div class="small" style="margin:4px 2px 0">会えそうな時間帯（前に話せた時間・単身は夜／ファミリーは昼）ごとに分けて、近い順につなぎます。</div>
  <button class="more" id="selMap" style="margin-top:12px">📍 地図から選んで作る</button><div class="small" style="margin:4px 2px 0">地図の点を押していきます。近くのおすすめは黄色の輪で出ます。</div>
- <button class="more" id="selMode" style="margin-top:10px">☑ 一覧から選んで作る</button>
- <button class="more" id="rtCond" style="margin-top:10px">いまの条件の物件（${m.toLocaleString()}件）から近い8件で作る</button></div></div>`}
+ <button class="more" id="rtCond" style="margin-top:10px">おまかせで作る</button><div class="small" style="margin:4px 2px 0">いまの条件の物件（${m.toLocaleString()}件）から、現在地に近い8件を会えそうな時間帯の順に並べます。</div></div></div>`}
 function startRoute(fav){$("#layer").innerHTML="";if(!navigator.geolocation){const c=st.city&&cityCenter();return c?makeRoute(c,fav):toast("市区町村を選ぶと、その中心からルートを作れます")}toast("現在地を取得中…");navigator.geolocation.getCurrentPosition(p=>makeRoute([p.coords.latitude,p.coords.longitude],fav),()=>{const c=st.city&&cityCenter()||(fav&&(()=>{const b=BY[+myFavIds()[0]];return b&&b.lat!=null?[b.lat,b.lng]:null})());if(c){toast("現在地が使えないので、"+(st.city&&cityCenter()?st.city+"の中心":"★の1件目")+"から作ります");makeRoute(c,fav)}else toast("現在地が使えません。市区町村を選んでからもう一度押してください")},{enableHighAccuracy:true,timeout:15000,maximumAge:60000})}
 // ===== 今日の自分の成績（一覧の上）=====
 function myToday(){if(!ME)return "";const R=allRecs().filter(h=>h.w===ME&&isToday(h.t));const t=R.filter(h=>TALK.includes(h.s)).length,ok=R.filter(h=>h.s==="ok").length,kn=R.filter(h=>h.s==="kn").length;

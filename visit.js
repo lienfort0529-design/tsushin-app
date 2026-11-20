@@ -116,7 +116,7 @@ function filtered(){let a=VIS();const src=st.src||"t";if(src==="t")a=a.filter(b=
  return a}
 function list(){const a=filtered();const hc=st.near&&st.pos?hereCity():"";
  const F=[["all","すべて"],["hot","🔥未着手"],["go","訪問中"],["part","一部だけ"],["chk","現場で確認"]];
- return `<button class="near" id="near" aria-pressed="${st.near}">${st.near?"📍 近い順で表示中（タップで解除）":"📍 いる場所から近い物件を出す"}</button>
+ return `<button class="near" id="near" aria-pressed="${st.near}">${st.near?"📍 近い順で表示中（タップで解除）":"📍 現在地から近い物件"}</button>
  ${hc?`<div class="here"><span>${st.posCity?"基準":"いまいる場所"}：<b>${st.posCity?st.city+"の中心":hc}</b></span>${st.city!==hc?`<button data-city="${hc}">${hc}だけ見る</button>`:""}</div>`:""}
  <input class="search" id="q" type="search" enterkeyhint="search" placeholder="物件名・住所・メモで検索（例：大正区 1DK）" value="${esc(st.q)}">
  <select class="sel" id="city" aria-label="市区町村"><option value="">大阪府すべて（${VIS().length.toLocaleString()}件）</option>${CITIES.map(c=>`<option value="${esc(c)}" ${c===st.city?"selected":""}>${esc(c)}（${CITY_N[c].toLocaleString()}）</option>`).join("")}</select>

@@ -289,3 +289,13 @@ header{background:var(--ink);color:#fff;border:0;box-shadow:inset 0 -3px 0 var(-
 .mysec>summary{list-style:none;cursor:pointer;padding:12px 0;display:flex;align-items:center}.mysec>summary::-webkit-details-marker{display:none}
 .mysec>summary::after{content:"▼";margin-left:auto;font-size:11px;color:var(--sub)}.mysec[open]>summary::after{content:"▲"}
 .mysec>summary .myh{margin:0}.mysec[open]{padding-bottom:12px}
+/* 住んでいる人の傾向 */
+.trtags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.trt{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;background:#e7f5ff;color:#1864ab;border:1px solid #a5d8ff}
+.trt.est{background:none;border-style:dashed;color:var(--sub);border-color:var(--line)}.trt small{font-size:10px;opacity:.8}
+.trtags.sm .trt{font-size:10px;padding:1px 7px}
+.trbox{margin:10px 0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.trh{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:14px}.trh .small{font-size:11px}
+.trin{margin-top:8px}.trin>summary{font-size:13px;font-weight:700;color:var(--accent);cursor:pointer;padding:4px 0}
+.trin .chips,.adv .chips{flex-wrap:wrap;overflow:visible;margin-inline:0;padding-inline:0}
+.nums.left b{color:var(--accent);font-size:13px}

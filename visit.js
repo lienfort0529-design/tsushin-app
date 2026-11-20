@@ -35,7 +35,7 @@ const isPub=b=>b.kind==="d"||!!PUB[b.id];
 const memOf=b=>{const w=Object.assign({},b.web||{});delete w.src;return Object.assign(w,b.dm||{},MM[b.id]||{})};
 const VIS=()=>ROLE==="agency"?B.filter(isPub):B;
 const st={view:"list",v:"list",f:"all",q:"",city:"",b:null,t:0,mode:"list",room:null,pick:null,lim:50,near:false,pos:null,auto:true};
-Object.assign(st,load("au_view",{}));if(st.mg){st.adv=Object.assign({},st.adv||{},{mgs:st.mg==="fam"?["f2","f3"]:[st.mg]});st.mg=""}st.pos=null;st.near=false;
+Object.assign(st,load("au_view",{}));if(st.f==="part"||st.f==="chk")st.f="all";if(st.mg){st.adv=Object.assign({},st.adv||{},{mgs:st.mg==="fam"?["f2","f3"]:[st.mg]});st.mg=""}st.pos=null;st.near=false;
 const keep=()=>save("au_view",{estOn:st.estOn,src:st.src,f:st.f,city:st.city,auto:st.auto,view:st.view,base:st.base,mg:st.mg,lk:st.lk,adv:st.adv});
 function km(b){if(!st.pos||b.lat==null)return 1e9;const R=6371,r=Math.PI/180,dl=(b.lat-st.pos[0])*r,dg=(b.lng-st.pos[1])*r;const x=Math.sin(dl/2)**2+Math.cos(st.pos[0]*r)*Math.cos(b.lat*r)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
 function dtxt(d){return d>=1e8?"":d<1?Math.round(d*1000/10)*10+"m":d.toFixed(1)+"km"}
@@ -177,7 +177,6 @@ const FDB=[["part","一部の棟だけDropboxにある"],["chk","Dropboxと同�
 function advSum(){const D=ADV(),o=[];if(st.f&&st.f!=="all")o.push((FST.concat(FDB).find(x=>x[0]===st.f)||[,""])[1]);if(D.mgs.length)o.push(D.mgs.map(k=>(MG.find(x=>x[0]===k)||[,""])[1]).join("・"));if(st.lk)o.push(st.lk==="yes"?"🔒オートロックあり":"オートロックなし");if(D.kosu)o.push(D.kosu+"戸以上");if(D.left)o.push("未訪問が半分以上");if(D.kn)o.push("検討あり");return o}
 function advBox(){const D=ADV(),n=filtered().length;const ck=(on,attr,l)=>`<button class="chip" ${attr} aria-pressed="${on}">${l}</button>`;
  return `<div class="adv"><div class="advh">訪問の進み具合</div><div class="chips">${FST.map(([k,l])=>ck((st.f||"all")===k,`data-f="${k}"`,l)).join("")}</div>
- ${(st.src||"t")!=="d"?`<div class="advh">Dropboxとの関係（自社リスト物件のうち）</div><div class="chips">${FDB.map(([k,l])=>ck(st.f===k,`data-f="${st.f===k?"all":k}"`,l)).join("")}</div>`:""}
  <div class="advh">間取り（いくつでも）</div><div class="chips">${MG.slice(1).map(([k,l])=>ck(D.mgs.includes(k),`data-advmg="${k}"`,l)).join("")}</div>
  <div class="advh">オートロック</div><div class="chips">${[["","指定なし"],["yes","🔒あり"],["no","なし"]].map(([k,l])=>ck((st.lk||"")===k,`data-lk="${k}"`,l)).join("")}</div>
  ${D.mgs.length||st.lk?`<label class="auto" style="margin:0 0 4px"><input type="checkbox" id="estOn" ${st.estOn!==false?"checked":""}>名前から推定した物件も出す（「推定」の印つき）</label>`:""}

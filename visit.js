@@ -377,11 +377,12 @@ function typeOf(b){const s=((MM[b.id]||{}).shubetsu||"")+" "+((b.dm||{}).shubets
 const TYPE_TXT={V:"タイプV（最大100M）",G:"タイプG（1G・速い）",VG:"タイプV・G",E:"タイプE",UR:"都市機構（UR）",URG:"都市機構G（UR）",GIGA:"ギガ",RES:"レジデンス",NONE:"KDDIのサイトに表示なし（現場で確認）"};
 // 調べたときの詳しい表記（契約の型など）。タイプ名の部分は省いて「個別型(16契約以上)」「西日本」などだけ出す
 function autDetail(b){const d=(b.web||{}).autd||"";if(!d||/表示なし|照会エラー/.test(d))return "";return d.replace(/^(タイプ[VGE]|都市機構G?|auひかり|ギガ)\s*/,"").trim()}
-const TYPE_SHORT={VG:"V・G",UR:"UR",URG:"UR-G",GIGA:"ギガ",RES:"レジデンス",NONE:"表示なし"};
+const TYPE_SHORT={V:"タイプV",G:"タイプG",E:"タイプE",VG:"タイプV・G",UR:"UR",URG:"UR-G",GIGA:"ギガ",RES:"レジデンス",NONE:"タイプ不明"};
 const typeTag=b=>{const t=typeOf(b);return t?`<span class="tag ty ty-${t}">${TYPE_SHORT[t]||t}</span>`:""};
 // 物件のカード（一覧・マイページで使う）
 function bCard(b){const ks=allRooms(b),c=stats(ks),fn=favN(b.id);const sel=SEL&&SEL.has(b.id);return `<div class="bwrap ${SEL?"selm":""} ${sel?"on":""}">${SEL?`<button class="sck" data-sel="${b.id}" aria-pressed="${sel}" aria-label="選ぶ">${sel?"✓":""}</button>`:""}<button class="fstar" data-fav="${b.id}" aria-pressed="${isFav(b.id)}" aria-label="気になる">${isFav(b.id)?"★":"☆"}${fn?`<small>${fn}人</small>`:""}</button><button class="bcard" data-b="${b.id}">
-  <div class="top"><b>${esc(b.name)}</b>${isHot(b)?'<span class="tag hot">🔥未訪問</span>':""}${typeTag(b)}${(()=>{const w=Object.keys(todayWho(b));return w.length?`<span class="tag tdy">今日 ${esc(w.join("・"))}</span>`:""})()}${st.near&&st.pos?`<span class="dist">${dtxt(km(b))}</span>`:""}</div>
+  <div class="top"><b>${esc(b.name)}</b>${st.near&&st.pos?`<span class="dist">${dtxt(km(b))}</span>`:""}</div>
+  ${(()=>{const g=(isHot(b)?'<span class="tag hot">🔥未訪問</span>':"")+typeTag(b)+(()=>{const w=Object.keys(todayWho(b));return w.length?`<span class="tag tdy">今日 ${esc(w.join("・"))}</span>`:""})();return g?`<div class="tg">${g}</div>`:""})()}
   <div class="addr">${esc(b.addr)}${b.nt>1?`・${b.nt}棟`:""}</div>${roomTxt(b)&&(ROLE==="own"||isPub(b))?`<div class="nums" style="color:var(--fg)">🏠 ${esc(roomTxt(b))}</div>`:""}
   ${(()=>{const m=KIND[b.kind]+VTAG(b)+(MM[b.id]&&(MEMOF.some(([k])=>MM[b.id][k])||MM[b.id].free)&&ROLE==="own"?'<span class="tag as">📝メモ</span>':"")+trTags(b,2);return m?`<div class="meta">${m}</div>`:""})()}
   ${ks.length?(()=>{const L=leftOf(b),S=bScore(b);return barHTML(ks)+`<div class="nums">まだ <b class="lft">${L.n}</b>/${L.all}部屋（${Math.floor(L.p*100)}%）${c.fu?"・不在 "+c.fu:""}${c.kn?"・検討 "+c.kn:""}${S.ok?"・獲得 "+S.ok:""}${c.dg?`・<span style="color:var(--r-ke-t);font-weight:700">⚠${c.dg}</span>`:""}</div>`})():""}</button></div>`}

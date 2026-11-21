@@ -224,21 +224,24 @@ function filtered(){let a=VIS();const src=st.src||"t";if(src==="t")a=a.filter(b=
  const D=ADV();
  if(D.mgs.length){const M={s:["s","s~"],d1:["d1"],f2:["f2","fam~"],f3:["f3","fam~"]};const ok=D.mgs.flatMap(k=>M[k]||[k]);a=a.filter(b=>ok.includes(G(b)))}
  if(D.trs&&D.trs.length)a=a.filter(b=>D.trs.some(k=>trHas(b,k)));
+ if(D.ty){const T=TYF.find(x=>x[0]===D.ty);if(T)a=a.filter(b=>T[2](typeOf(b)))}
  if(D.kosu)a=a.filter(b=>{const n=kosuOf(b);return n==null?D.unk:n>=D.kosu});
  if(D.left){const L=LEFT.find(x=>x[0]===D.left);if(L)a=a.filter(b=>{const r=leftOf(b);return L[2](r)})}
  if(st.near&&st.pos)a=a.slice().sort((x,y)=>km(x)-km(y));
  return a}
 // 詳細条件（間取りの複数選択・戸数・まだ回っていない部屋が多い・検討あり）
-const ADV=()=>{const D=Object.assign({mgs:[],kosu:0,left:"",unk:true,trs:[]},st.adv||{});if(D.left===true||D.left===false||/^p/.test(D.left))D.left="";return D};
+const ADV=()=>{const D=Object.assign({mgs:[],kosu:0,left:"",unk:true,trs:[],ty:""},st.adv||{});if(D.left===true||D.left===false||/^p/.test(D.left))D.left="";return D};
 // まだ回っていない部屋：部屋を作った物件は部屋の数から、まだの物件は戸数から（全部まだ）
 function leftOf(b){const ks=allRooms(b);if(ks.length){const n=ks.filter(k=>!hist(k).length).length;return {n,all:ks.length,p:n/ks.length,est:false}}const k=kosuOf(b);return {n:k,all:k,p:1,est:true}}
+// auひかりのタイプで絞る
+const TYF=[["","指定なし",()=>true],["V","タイプV",t=>t==="V"||t==="VG"],["G","タイプG",t=>t==="G"||t==="VG"],["etc","UR・ギガ・その他",t=>["UR","URG","GIGA","RES","E"].includes(t)],["unk","分からない",t=>!t||t==="NONE"]];
 const LEFT=[["","指定なし",()=>true],["n10","10部屋以上",r=>r.n!=null&&r.n>=10],["n30","30部屋以上",r=>r.n!=null&&r.n>=30],["n50","50部屋以上",r=>r.n!=null&&r.n>=50],["n100","100部屋以上",r=>r.n!=null&&r.n>=100]];
 const kosuOf=b=>{const m=String(memOf(b).kosu||"").normalize("NFKC").match(/\d+/);return m?+m[0]:null};
-const advN=()=>{const D=ADV();return ((st.src||"t")!=="t"?1:0)+(st.f&&st.f!=="all"?1:0)+(D.mgs.length?1:0)+(st.lk?1:0)+(D.kosu?1:0)+(D.left?1:0)+(D.trs&&D.trs.length?1:0)};
+const advN=()=>{const D=ADV();return ((st.src||"t")!=="t"?1:0)+(st.f&&st.f!=="all"?1:0)+(D.mgs.length?1:0)+(st.lk?1:0)+(D.kosu?1:0)+(D.left?1:0)+(D.trs&&D.trs.length?1:0)+(D.ty?1:0)};
 const FST=[["all","すべて"],["hot","🔥まだ誰も行っていない"],["go","🚶訪問した部屋がある"]];
 const FDB=[["part","一部の棟だけDropboxにある"],["chk","Dropboxと同じ物件か要確認"]];
 // 入っている条件を短い言葉で（条件を閉じているときに一覧の上に出す）
-function advSum(){const D=ADV(),o=[];if((st.src||"t")==="d")o.push("上位店の公開物件");if(st.src==="a")o.push("自社＋上位店");if(st.f&&st.f!=="all")o.push((FST.concat(FDB).find(x=>x[0]===st.f)||[,""])[1]);if(D.mgs.length)o.push(D.mgs.map(k=>(MG.find(x=>x[0]===k)||[,""])[1]).join("・"));if(st.lk)o.push(st.lk==="yes"?"🔒オートロックあり":"オートロックなし");if(D.trs&&D.trs.length){const [nk,,nl]=trNow();o.push(D.trs.join(",")===nk?"🕒"+nl:D.trs.map(k=>TRL[k]).join("・"))}if(D.kosu)o.push(D.kosu+"戸以上");if(D.left)o.push("まだの部屋 "+LEFT.find(x=>x[0]===D.left)[1]);return o}
+function advSum(){const D=ADV(),o=[];if((st.src||"t")==="d")o.push("上位店の公開物件");if(st.src==="a")o.push("自社＋上位店");if(st.f&&st.f!=="all")o.push((FST.concat(FDB).find(x=>x[0]===st.f)||[,""])[1]);if(D.mgs.length)o.push(D.mgs.map(k=>(MG.find(x=>x[0]===k)||[,""])[1]).join("・"));if(st.lk)o.push(st.lk==="yes"?"🔒オートロックあり":"オートロックなし");if(D.trs&&D.trs.length){const [nk,,nl]=trNow();o.push(D.trs.join(",")===nk?"🕒"+nl:D.trs.map(k=>TRL[k]).join("・"))}if(D.ty)o.push("auひかり "+TYF.find(x=>x[0]===D.ty)[1]);if(D.kosu)o.push(D.kosu+"戸以上");if(D.left)o.push("まだの部屋 "+LEFT.find(x=>x[0]===D.left)[1]);return o}
 function advBox(){const D=ADV(),n=filtered().length;const ck=(on,attr,l)=>`<button class="chip" ${attr} aria-pressed="${on}">${l}</button>`;
  // 1つだけ選ぶものはプルダウン（2列）、いくつでも選ぶものは押すと開く行に
  const sel=(id,lab,opts,v)=>`<label class="asel"><span>${lab}</span><select id="${id}">${opts.map(([k,l])=>`<option value="${k}" ${String(v)===String(k)?"selected":""}>${l}</option>`).join("")}</select></label>`;
@@ -250,6 +253,7 @@ function advBox(){const D=ADV(),n=filtered().length;const ck=(on,attr,l)=>`<butt
  ${sel("a_lk","オートロック",[["","指定なし"],["yes","あり"],["no","なし"]],st.lk||"")}
  ${sel("a_k","戸数",[[0,"指定なし"],[20,"20戸以上"],[50,"50戸以上"],[100,"100戸以上"]],D.kosu)}
  ${sel("a_l","まだ回っていない部屋",LEFT.map(([k,l])=>[k,l]),D.left)}
+ ${sel("a_ty","auひかりのタイプ",TYF.map(([k,l])=>[k,l]),D.ty)}
  </div>
  ${multi("mg","間取り",D.mgs.length?D.mgs.map(k=>(MG.find(x=>x[0]===k)||[,""])[1]).join("・"):"すべて",MG.slice(1).map(([k,l])=>ck(D.mgs.includes(k),`data-advmg="${k}"`,l)).join(""))}
  ${multi("tr","住んでいる人",D.trs.length?D.trs.map(k=>TRL[k]).join("・"):"指定なし",TR.map(([k,l])=>ck(D.trs.includes(k),`data-advtr="${k}"`,l)).join(""))}
@@ -573,7 +577,7 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
   if(t.dataset.advmg){const k=t.dataset.advmg;D.mgs=D.mgs.includes(k)?D.mgs.filter(x=>x!==k):D.mgs.concat(k);if(D.mgs.length)st.mg=""}
   if(t.dataset.advk!==undefined)D.kosu=+t.dataset.advk;
   if(t.dataset.advb)D[t.dataset.advb]=!D[t.dataset.advb];
-  if(t.id==="advClr"||t.id==="advClrTop"){Object.assign(D,{mgs:[],kosu:0,left:"",unk:true,trs:[]});st.src="t";st.f="all";st.lk=""}
+  if(t.id==="advClr"||t.id==="advClrTop"){Object.assign(D,{mgs:[],kosu:0,left:"",unk:true,trs:[],ty:""});st.src="t";st.f="all";st.lk=""}
   st.adv=D;st.lim=50;keep();const y=scrollY;render();scrollTo(0,y);return}
  if(t.id==="advClr2"){st.adv=null;st.src="t";st.f="all";st.lk="";st.mg="";st.lim=50;keep();return render()}
  if(t.id==="advGo"){st.advOpen=false;keep();render();const r=document.getElementById("res");if(r)r.scrollIntoView();return}
@@ -602,7 +606,7 @@ document.addEventListener("click",e=>{const gc=e.target.closest("[data-gocity]")
 });
 document.addEventListener("focusin",e=>{const t=e.target;if(t.matches('input:not([type=checkbox]),textarea')){document.body.classList.add("typing");setTimeout(()=>{try{t.scrollIntoView({block:"center"})}catch(x){}},300)}});
 document.addEventListener("focusout",e=>{setTimeout(()=>{const a=document.activeElement;if(!a||!a.matches('input:not([type=checkbox]),textarea'))document.body.classList.remove("typing")},100)});
-document.addEventListener("change",e=>{{const id=e.target.id,v=e.target.value,D=ADV();let hit=true;if(id==="a_src")st.src=v;else if(id==="a_f")st.f=v;else if(id==="a_lk")st.lk=v;else if(id==="a_k"){D.kosu=+v;st.adv=D}else if(id==="a_l"){D.left=v;st.adv=D}else hit=false;if(hit){st.lim=50;keep();const y=scrollY;render();scrollTo(0,y);return}}if(e.target.id==="tsel"){st.t=+e.target.value;const y=scrollY;render();scrollTo(0,y);return}if(e.target.id==="estOn"){st.estOn=e.target.checked;keep();const y=scrollY;render();scrollTo(0,y);return}if(e.target.id==="advUnk"){st.adv=Object.assign(ADV(),{unk:e.target.checked});keep();const y=scrollY;render();scrollTo(0,y);return}if(e.target.id==="iv"||e.target.id==="app"){const S=load("au_set",{iv:"month",app:true});if(e.target.id==="iv")S.iv=e.target.value;else S.app=e.target.checked;save("au_set",S);return render()}if(e.target.id==="per"){st.per=e.target.value==="mo"?"mo":"all";return render()}if(e.target.id==="a_city"||e.target.id==="a_k"){st.adm=Object.assign(st.adm||{},{[e.target.id==="a_city"?"city":"k"]:e.target.value,n:100});return render()}if(e.target.id==="city"){st.city=e.target.value;st.lim=50;keep();render()}if(e.target.id==="auto"){st.auto=e.target.checked;keep()}});
+document.addEventListener("change",e=>{{const id=e.target.id,v=e.target.value,D=ADV();let hit=true;if(id==="a_src")st.src=v;else if(id==="a_f")st.f=v;else if(id==="a_lk")st.lk=v;else if(id==="a_k"){D.kosu=+v;st.adv=D}else if(id==="a_l"){D.left=v;st.adv=D}else if(id==="a_ty"){D.ty=v;st.adv=D}else hit=false;if(hit){st.lim=50;keep();const y=scrollY;render();scrollTo(0,y);return}}if(e.target.id==="tsel"){st.t=+e.target.value;const y=scrollY;render();scrollTo(0,y);return}if(e.target.id==="estOn"){st.estOn=e.target.checked;keep();const y=scrollY;render();scrollTo(0,y);return}if(e.target.id==="advUnk"){st.adv=Object.assign(ADV(),{unk:e.target.checked});keep();const y=scrollY;render();scrollTo(0,y);return}if(e.target.id==="iv"||e.target.id==="app"){const S=load("au_set",{iv:"month",app:true});if(e.target.id==="iv")S.iv=e.target.value;else S.app=e.target.checked;save("au_set",S);return render()}if(e.target.id==="per"){st.per=e.target.value==="mo"?"mo":"all";return render()}if(e.target.id==="a_city"||e.target.id==="a_k"){st.adm=Object.assign(st.adm||{},{[e.target.id==="a_city"?"city":"k"]:e.target.value,n:100});return render()}if(e.target.id==="city"){st.city=e.target.value;st.lim=50;keep();render()}if(e.target.id==="auto"){st.auto=e.target.checked;keep()}});
 document.addEventListener("toggle",e=>{if(e.target.id==="rdet")st.rOpen=e.target.open;if(e.target.id==="bdet")st.detOpen=e.target.open;if(e.target.id==="hdet")st.hOpen=e.target.open},true);
 let qT=null;
 function qUpdate(v){st.q=v;st.lim=50;clearTimeout(qT);qT=setTimeout(()=>{const a=filtered();const r=$("#res");if(!r)return render();r.innerHTML=listRes(a);if(st.view==="map")drawMap()},250)}

@@ -363,3 +363,4 @@ tr.idle td{color:#c92a2a;font-weight:700}
 .amul .chips{padding:0 10px 10px;margin:0}
 .tag.ty-NONE{background:#fff0f0;color:#c92a2a}.tag.ty-UR,.tag.ty-URG,.tag.ty-GIGA,.tag.ty-RES,.tag.ty-E{background:#f1f3f5;color:#495057}
 .hd .mk,.hd .vt{cursor:pointer}
+.kno{display:flex;align-items:center;gap:8px;margin:8px 0 2px;font-size:13px;color:var(--sub)}.kno b{color:var(--fg);font-family:var(--mono,monospace)}.rrow .rb b .tag,.rsb b .tag{font-size:10px;padding:0 5px;vertical-align:1px}

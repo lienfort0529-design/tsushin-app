@@ -366,9 +366,12 @@ function allRecs(){const out=[];Object.keys(H).forEach(k=>{const b=BY[k.split("#
 // auひかりのタイプ：Dropboxの「種別」か、自社メモの「種別」から読む（KDDIのデータには入っていない）
 // V＝最大100M、G＝速い（1G）。両方書いてあるものは「V・G」
 function typeOf(b){const s=((MM[b.id]||{}).shubetsu||"")+" "+((b.dm||{}).shubetsu||"")+" "+(b.kind==="d"?b.name:"");const u=s.normalize("NFKC").toUpperCase().replace(/\s/g,"");
- const v=/タイプV|TYPE-?V|VG|V\d|V個別|V型/.test(u),g=/タイプG|TYPE-?V?G|VG|G\d|G個別|G型/.test(u);return v&&g?"VG":v?"V":g?"G":""}
-const TYPE_TXT={V:"タイプV（最大100M）",G:"タイプG（1G・速い）",VG:"タイプV・G"};
-const typeTag=b=>{const t=typeOf(b);return t?`<span class="tag ty ty-${t}">${t==="VG"?"V・G":t}</span>`:""};
+ const v=/タイプV|TYPE-?V|VG|V\d|V個別|V型/.test(u),g=/タイプG|TYPE-?V?G|VG|G\d|G個別|G型/.test(u);if(v||g)return v&&g?"VG":v?"V":"G";
+ // 自社リスト物件：KDDIで調べたタイプ（物件データの web.aut）
+ return (b.web&&b.web.aut)||""}
+const TYPE_TXT={V:"タイプV（最大100M）",G:"タイプG（1G・速い）",VG:"タイプV・G",E:"タイプE",UR:"都市機構（UR）",URG:"都市機構G（UR）",GIGA:"ギガ",RES:"レジデンス",NONE:"KDDIのサイトに表示なし（現場で確認）"};
+const TYPE_SHORT={VG:"V・G",UR:"UR",URG:"UR-G",GIGA:"ギガ",RES:"レジデンス",NONE:"表示なし"};
+const typeTag=b=>{const t=typeOf(b);return t?`<span class="tag ty ty-${t}">${TYPE_SHORT[t]||t}</span>`:""};
 // 物件のカード（一覧・マイページで使う）
 function bCard(b){const ks=allRooms(b),c=stats(ks),fn=favN(b.id);const sel=SEL&&SEL.has(b.id);return `<div class="bwrap ${SEL?"selm":""} ${sel?"on":""}">${SEL?`<button class="sck" data-sel="${b.id}" aria-pressed="${sel}" aria-label="選ぶ">${sel?"✓":""}</button>`:""}<button class="fstar" data-fav="${b.id}" aria-pressed="${isFav(b.id)}" aria-label="気になる">${isFav(b.id)?"★":"☆"}${fn?`<small>${fn}人</small>`:""}</button><button class="bcard" data-b="${b.id}">
   <div class="top"><b>${esc(b.name)}</b>${isHot(b)?'<span class="tag hot">🔥未訪問</span>':""}${(()=>{const w=Object.keys(todayWho(b));return w.length?`<span class="tag tdy">今日 ${esc(w.join("・"))}</span>`:""})()}${st.near&&st.pos?`<span class="dist">${dtxt(km(b))}</span>`:""}</div>

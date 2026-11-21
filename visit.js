@@ -371,12 +371,15 @@ function allRecs(){const out=[];Object.keys(H).forEach(k=>{const b=BY[k.split("#
 // auひかりのタイプ：Dropboxの「種別」か、自社メモの「種別」から読む（KDDIのデータには入っていない）
 // V＝最大100M、G＝速い（1G）。両方書いてあるものは「V・G」
 function typeOf(b){const s=((MM[b.id]||{}).shubetsu||"")+" "+((b.dm||{}).shubetsu||"")+" "+(b.kind==="d"?b.name:"");const u=s.normalize("NFKC").toUpperCase().replace(/\s/g,"");
- const v=/タイプV|TYPE-?V|VG|V\d|V個別|V型/.test(u),g=/タイプG|TYPE-?V?G|VG|G\d|G個別|G型/.test(u);if(v||g)return v&&g?"VG":v?"V":"G";
+ const v=/タイプV|TYPE-?V|VG|V\d|V個別|V型/.test(u),g=/タイプG|TYPE-?V?G|VG|G\d|G個別|G型/.test(u);if(v||g)return v&&g?"VG":v?"V":"G";if(/ギガ|GIGA/.test(u))return "GIGA";if(/タイプE|TYPE-?E/.test(u))return "E";
  // 自社リスト物件：KDDIで調べたタイプ（物件データの web.aut）
  return (b.web&&b.web.aut)||""}
 const TYPE_TXT={V:"タイプV（最大100M）",G:"タイプG（1G・速い）",VG:"タイプV・G",E:"タイプE",UR:"都市機構（UR）",URG:"都市機構G（UR）",GIGA:"ギガ",RES:"レジデンス",NONE:"KDDIのサイトに表示なし（現場で確認）"};
 // 調べたときの詳しい表記（契約の型など）。タイプ名の部分は省いて「個別型(16契約以上)」「西日本」などだけ出す
-function autDetail(b){const d=(b.web||{}).autd||"";if(!d||/表示なし|照会エラー/.test(d))return "";return d.replace(/^(タイプ[VGE]|都市機構G?|auひかり|ギガ)\s*/,"").trim()}
+function autDetail(b){
+ // Dropbox・自社メモの「種別」に書いてある契約の型（例：個別型2(16戸)）
+ const sh=(((MM[b.id]||{}).shubetsu||"")+" "+((b.dm||{}).shubetsu||"")).normalize("NFKC").replace(/\s+/g,"");const m=sh.match(/個別型?\d?\(\d+戸\)/);if(m)return m[0];
+ const d=(b.web||{}).autd||"";if(!d||/表示なし|照会エラー/.test(d))return "";return d.replace(/^(タイプ[VGE]|都市機構G?|auひかり|ギガ)\s*/,"").trim()}
 const TYPE_SHORT={V:"タイプV",G:"タイプG",E:"タイプE",VG:"タイプV・G",UR:"UR",URG:"UR-G",GIGA:"ギガ",RES:"レジデンス",NONE:"タイプ不明"};
 const typeTag=b=>{const t=typeOf(b);return t?`<span class="tag ty ty-${t}">${TYPE_SHORT[t]||t}</span>`:""};
 // 物件のカード（一覧・マイページで使う）

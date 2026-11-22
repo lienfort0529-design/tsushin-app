@@ -453,6 +453,8 @@ const zero = () => ({ c: S.results.map(() => 0), wp: {}, o: 0, op: {}, ng: 0 });
 // エリア（全体／大阪／名古屋）：ランキング・KPI で切り替える。stats の data・daily はエリアごと
 let statArea = '全体';
 const AD = () => S.data[statArea] || {};
+// 大阪・名古屋のタブでは、そのエリアの人（メンバーのF列）だけを並べる。全体は全員。エリアを返さない古い API のときは分けない
+const inArea = (names, areaOf) => statArea === '全体' || !areaOf ? names : names.filter(n => areaOf[n] === statArea);
 const get = (name, p) => (AD()[name] && AD()[name][p]) || zero();
 const areaSeg = () => (cfg.areas && cfg.areas.length ? segBtns(['全体'].concat(cfg.areas).map(a => [a, a]), statArea, 'data-area') : '');
 function bindArea(redraw) { document.querySelectorAll('[data-area]').forEach(b => b.onclick = () => { statArea = b.dataset.area; redraw(); }); }
@@ -481,7 +483,7 @@ const range = p => md(S.periods[p].s) + (S.periods[p].s === S.periods[p].e ? '' 
 
 // ----- ランキング -----
 function drawRank() {
-  const act = S.active, all = Object.keys(AD());
+  const act = inArea(S.active, S.areaOf), all = Object.keys(AD());
   // 今日のMVP：今日の獲得がいちばん多い人（同数なら訪問が多い人）
   const mvp = act.map(n => kpi(get(n, 'day'))).map((k, i) => ({ n: act[i], w: k.won, v: k.visit }))
     .sort((a, b) => b.w - a.w || b.v - a.v)[0];
@@ -553,8 +555,8 @@ function kpiPeriod() {
   const P = { u, s, e, full: full || e, label, scale };
   // 日ごとの推移は stats に今月・先月の分がある
   const inS = key && (u !== 'week' || s >= S.periods.prev.s);
-  const A = statArea, fromR = r => ({ get: n => r.data[A] && r.data[A][n] ? r.data[A][n].r : zero(), names: Object.keys(r.data[A] || {}), daily: r.daily[A] || {}, active: r.active, goals: r.goals, products: r.products });
-  if (inS) P.src = { get: n => (AD()[n] && AD()[n][key]) || zero(), names: Object.keys(AD()), daily: S.daily[A] || {}, active: S.active, goals: S.goals, products: S.products };
+  const A = statArea, fromR = r => ({ get: n => r.data[A] && r.data[A][n] ? r.data[A][n].r : zero(), names: Object.keys(r.data[A] || {}), daily: r.daily[A] || {}, active: inArea(r.active, r.areaOf), goals: r.goals, products: r.products });
+  if (inS) P.src = { get: n => (AD()[n] && AD()[n][key]) || zero(), names: Object.keys(AD()), daily: S.daily[A] || {}, active: inArea(S.active, S.areaOf), goals: S.goals, products: S.products };
   else {
     const c = RC[s + e];
     if (c && Date.now() - c.at < (e < t ? 300000 : 60000)) P.src = fromR(c.r);
@@ -616,6 +618,7 @@ function drawKpiAll(P) {
 
 function drawKpiOne(P) {
   const src = P.src, names = src.active.slice();
+  if (kpiWho && !names.includes(kpiWho) && statArea !== '全体') kpiWho = ''; // エリアを切り替えたら、そのエリアの人から選び直す
   if (!kpiWho) kpiWho = names.includes(me) ? me : names[0] || '';
   if (kpiWho && !names.includes(kpiWho)) names.push(kpiWho);
   const n = kpiWho, x = src.get(n), k = kpi(x), g0 = src.goals.member[n] || {}, rg = src.goals.rate;
@@ -720,25 +723,26 @@ function drawBoard(r) {
 function drawMembers(list) {
   const p = $('adminPane'); if (!p || adminTab !== 'members') return;
   const num = (cls, v) => '<input type="number" inputmode="numeric" min="0" class="' + cls + '" value="' + esc(v) + '">';
+  const areaSel = (attr, v) => '<label>エリア<select ' + attr + '><option value="">なし</option>' + (cfg.areas || []).map(a => '<option' + (a === v ? ' selected' : '') + '>' + esc(a) + '</option>').join('') + '</select></label>';
   const row = (m, i) => '<div class="mrow' + (m.active ? '' : ' off') + '" data-i="' + i + '"><div class="mn"><b>' + esc(m.name) + '</b>' +
     '<label class="sw"><input type="checkbox" class="ma"' + (m.active ? ' checked' : '') + '> 在籍</label></div>' +
-    '<div class="mg"><label>訪問' + num('mv', m.visit) + '</label><label>獲得' + num('mw', m.won) + '</label><label>開通' + num('mo', m.opened) + '</label></div>' +
+    '<div class="mg"><label>訪問' + num('mv', m.visit) + '</label><label>獲得' + num('mw', m.won) + '</label><label>開通' + num('mo', m.opened) + '</label>' + areaSel('class="mar"', m.area) + '</div>' +
     '<button class="okbtn small ms">保存</button></div>';
   p.innerHTML = '<div class="card"><h2>メンバーを追加</h2><div class="madd"><input type="text" id="nmName" placeholder="名前（例：山田太郎）">' +
-    '<div class="mg"><label>訪問' + num('', '').replace('class=""', 'id="nmV"') + '</label><label>獲得' + num('', '').replace('class=""', 'id="nmW"') + '</label><label>開通' + num('', '').replace('class=""', 'id="nmO"') + '</label></div>' +
-    '<button class="okbtn" id="nmAdd">追加</button></div><p class="sub" style="margin:8px 0 0">数字は月の目標（空でもよい）。追加した人は在籍になり、次にアプリを開いたときから名前に出ます。</p></div>' +
+    '<div class="mg"><label>訪問' + num('', '').replace('class=""', 'id="nmV"') + '</label><label>獲得' + num('', '').replace('class=""', 'id="nmW"') + '</label><label>開通' + num('', '').replace('class=""', 'id="nmO"') + '</label>' + areaSel('id="nmA"', '') + '</div>' +
+    '<button class="okbtn" id="nmAdd">追加</button></div><p class="sub" style="margin:8px 0 0">数字は月の目標（空でもよい）。エリアを選ぶと、ランキング・KPIの大阪／名古屋に出ます（なしは全体だけ）。追加した人は在籍になり、次にアプリを開いたときから名前に出ます。</p></div>' +
     '<div class="card" style="margin-top:12px"><h2>メンバー</h2><p class="sub" style="margin:-6px 0 4px">在籍を外すとアプリに出なくなります（記録は残る）。名前は変えられません</p>' + list.map(row).join('') + '</div>';
   const after = l => { toast('保存しました'); statsAt = 0; api('appConfig').then(c => { saveCfg(c); built = false; filled = false; }, () => {}); drawMembers(l); };
   $('nmAdd').onclick = () => {
     const name = $('nmName').value.trim(); if (!name) { toast('名前を入れてください'); return; }
     $('nmAdd').disabled = true;
-    api('memberSave', { isNew: true, name, active: true, visit: $('nmV').value, won: $('nmW').value, opened: $('nmO').value }).then(after, e => { toast(e.message); $('nmAdd').disabled = false; });
+    api('memberSave', { isNew: true, name, active: true, visit: $('nmV').value, won: $('nmW').value, opened: $('nmO').value, area: $('nmA').value }).then(after, e => { toast(e.message); $('nmAdd').disabled = false; });
   };
   p.querySelectorAll('.mrow').forEach(el => {
     const m = list[Number(el.dataset.i)], q = c => el.querySelector(c);
     q('.ms').onclick = () => {
       q('.ms').disabled = true;
-      api('memberSave', { name: m.name, active: q('.ma').checked, visit: q('.mv').value, won: q('.mw').value, opened: q('.mo').value })
+      api('memberSave', { name: m.name, active: q('.ma').checked, visit: q('.mv').value, won: q('.mw').value, opened: q('.mo').value, area: q('.mar').value })
         .then(after, e => { toast(e.message); q('.ms').disabled = false; });
     };
   });

@@ -285,7 +285,7 @@ body.busy #overlay { display: flex; }
 .madd { display: grid; gap: 8px; }
 .mg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .mg label { font-size: 11px; color: var(--sub); }
-.mg input { padding: 7px 8px; margin-top: 2px; }
+.mg input, .mg select { padding: 7px 8px; margin-top: 2px; }
 .mrow { display: grid; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); }
 .mrow.off .mn b { color: var(--sub); text-decoration: line-through; }
 .mn { display: flex; align-items: center; justify-content: space-between; }

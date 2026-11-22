@@ -39,7 +39,7 @@ const ENTRY_STATUS = ['エントリー済み', 'エントリー前キャンセ�
 const LINE_STATUS = ['有効', '手続中', '申込取消', '値なし'];
 // 開通に数えないもの：契約ステータス「申込取消」、エントリーステータスのキャンセル系
 const CANCEL_ENTRY = ['エントリー前キャンセル', 'キャンセル依頼', 'キャンセル依頼済'];
-// メンバーの列：A名前 B在籍 C月の訪問目標 D月の獲得目標 E月の開通目標
+// メンバーの列：A名前 B在籍 C月の訪問目標 D月の獲得目標 E月の開通目標 Fエリア（大阪／名古屋。空ならランキング・KPIの「全体」だけに出る）
 // 目標シート：B2チームの月の獲得目標 B3チームの月の開通目標 B6対面率 B7提案率 B8成約率の目標
 const MEDAL = { '🥇': '#fff4c2', '🥈': '#eceff3', '🥉': '#f8e3d0' };
 
@@ -278,7 +278,15 @@ function memberHeader_(sh) {
   sh.getRange('A1:E1').setValues([['名前', '在籍', '月の訪問目標', '月の獲得目標', '月の開通目標']]).setFontWeight('bold').setBackground('#e8eaed');
   sh.getRange('C2:E101').setBackground('#fff2cc');
   sh.setColumnWidths(3, 3, 100);
+  memberAreaCol_(sh);
   sh.getRange('G1').setValue('名前を入れて「在籍」にチェック → アプリ・ランキング・KPIに出ます。辞めた人はチェックを外す（記録は残ります）。黄色の目標はKPIの達成率に使います。');
+}
+
+// メンバーのF列「エリア」：見出しと選択肢（まだなければ作る。前からあるシートにも、初めて保存したときに足す）
+function memberAreaCol_(sh) {
+  if (sh.getRange('F1').getValue() === 'エリア') return;
+  sh.getRange('F1').setValue('エリア').setFontWeight('bold').setBackground('#e8eaed');
+  sh.getRange('F2:F101').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(AREAS, true).setAllowInvalid(false).build());
 }
 
 // チーム目標と率の目標（黄色のセルを書き換える）
@@ -948,16 +956,18 @@ function build_(periods, ds, de) {
   const g = ss.getSheetByName(GOAL_SHEET), num = x => (x === '' || x === null || isNaN(Number(x))) ? null : Number(x);
   const gv = g ? g.getRange('B1:B8').getValues().flat() : [];
   const m = ss.getSheetByName(MEMBER_SHEET), mn = m.getLastRow();
-  const active = [], member = {};
-  if (mn > 1) m.getRange(2, 1, mn - 1, 5).getValues().forEach(v => {
+  const active = [], member = {}, areaOf = {}; // areaOf：在籍の人のエリア（メンバーのF列。空の人は入れない）
+  if (mn > 1) m.getRange(2, 1, mn - 1, 6).getValues().forEach(v => {
     const name = String(v[0]).trim();
     if (!name || v[1] !== true) return;
     active.push(name);
     member[name] = { visit: num(v[2]), won: num(v[3]), opened: num(v[4]) };
+    const ar = String(v[5]).trim();
+    if (AREAS.includes(ar)) areaOf[name] = ar;
   });
   return { today: periods.day ? periods.day.s : '', periods: periods, results: RESULTS, active: active, products: prods,
     goals: { team: { won: num(gv[1]), opened: num(gv[2]) }, rate: { face: num(gv[5]), talk: num(gv[6]), close: num(gv[7]) }, member: member },
-    areas: AREAS, data: data, daily: daily };
+    areas: AREAS, areaOf: areaOf, data: data, daily: daily };
 }
 
 function clearStats_() { CacheService.getScriptCache().put('ver', String(Date.now()), 21600); }
@@ -1036,19 +1046,21 @@ const numOrBlank_ = (x, label) => {
   return n;
 };
 
-// メンバー全員（在籍していない人も）：[{name, active, visit, won, opened}]
+// メンバー全員（在籍していない人も）：[{name, active, visit, won, opened, area}]
 function memberList() {
   const sh = ss_().getSheetByName(MEMBER_SHEET), n = lastFilled_(sh);
   if (n < 2) return [];
-  return sh.getRange(2, 1, n - 1, 5).getValues().filter(v => String(v[0]).trim())
-    .map(v => ({ name: String(v[0]).trim(), active: v[1] === true, visit: v[2] === '' ? '' : v[2], won: v[3] === '' ? '' : v[3], opened: v[4] === '' ? '' : v[4] }));
+  return sh.getRange(2, 1, n - 1, 6).getValues().filter(v => String(v[0]).trim())
+    .map(v => ({ name: String(v[0]).trim(), active: v[1] === true, visit: v[2] === '' ? '' : v[2], won: v[3] === '' ? '' : v[3], opened: v[4] === '' ? '' : v[4], area: AREAS.includes(String(v[5]).trim()) ? String(v[5]).trim() : '' }));
 }
 
-// 1人を足す（isNew）か直す。u: {name, active, visit, won, opened, isNew}。名前は変えられない（記録が名前でつながっているため）
+// 1人を足す（isNew）か直す。u: {name, active, visit, won, opened, area, isNew}。area がないとき（古い画面から）はエリアを変えない。名前は変えられない（記録が名前でつながっているため）
 function memberSave(u) {
   const name = String(u.name || '').replace(/^[\s　]+|[\s　]+$/g, '');
   if (!name) throw new Error('名前を入れてください');
   const vals = [u.active === true, numOrBlank_(u.visit, '訪問目標'), numOrBlank_(u.won, '獲得目標'), numOrBlank_(u.opened, '開通目標')];
+  const area = u.area === undefined ? null : String(u.area || '').trim();
+  if (area && !AREAS.includes(area)) throw new Error('エリアは ' + AREAS.join('・') + ' から選んでください');
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
@@ -1063,6 +1075,7 @@ function memberSave(u) {
       if (box.getDataValidation() === null) box.insertCheckboxes();
     } else if (i < 0) throw new Error('「' + name + '」が見つかりません');
     sh.getRange(i + 2, 2, 1, 4).setValues([vals]);
+    if (area !== null) { memberAreaCol_(sh); sh.getRange(i + 2, 6).setValue(area); }
     clearStats_();
     return memberList();
   } finally {

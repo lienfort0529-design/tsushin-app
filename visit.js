@@ -353,6 +353,7 @@ function detail(){const b=BY[st.b];if(RECENT[0]!==b.id){const i=RECENT.indexOf(b
  ${allRooms(b).length?barHTML(allRooms(b))+`<div class="nums" style="margin-top:4px">${["mi",...PICK,"ke"].filter(s=>s==="mi"||c[s]).map(s=>RES[s].l+" "+c[s]).join("／")}${c.dg?`／<span style="color:var(--r-ke-t);font-weight:700">⚠危険 ${c.dg}</span>`:""}</div>`:""}${scoreTxt(b)}
  ${(()=>{const w=todayWho(b),ns=Object.keys(w).filter(n=>n!==ME);return ns.length?`<div class="note tdyn"><b>今日すでに回っている人</b>${ns.map(n=>esc(n)+"さん（"+w[n]+"部屋）").join("・")}</div>`:""})()}
  ${(()=>{const r=routeWho(b.id);return r.length?`<div class="note tdyn"><b>今日のルートに入れている人</b>${r.map(n=>esc(etaTxt(n,b.id))).join("・")}<div class="small" style="margin-top:4px">「何件先」はルートの順番から。時刻はその人の今日の記録（1部屋あたりの時間×部屋数＋歩き）から出した目安です。</div></div>`:""})()}
+ <a class="simbtn" href="calc.html?ty=${encodeURIComponent(typeOf(b))}&n=${encodeURIComponent(b.name)}"><b>💴 料金シミュレーション</b><small>お客様の今の光回線とauひかりの料金を比べる（解約金・工事費の残りも）</small></a>
  ${trBox(b)}
  <details id="bdet" class="det" ${st.detOpen||st.editMemo?"open":""}><summary>物件の詳細（ネット情報・メモ・地図）</summary>
  ${b.no?`<div class="kno">KDDI物件番号：<b>${esc(b.no)}</b><button class="edit2" data-copy="${esc(b.no)}">コピー</button></div>`:""}

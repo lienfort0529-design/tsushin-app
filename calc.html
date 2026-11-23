@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>解約金の計算｜通信インフラ</title>
+<title>料金シミュレーション｜通信インフラ</title>
 <meta name="theme-color" content="#0B1E30">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -15,10 +15,11 @@
 <body>
 <header><div class="hd">
   <img class="mk" src="logo-mark.png" alt="">
-  <div class="vt">解約金の計算<span class="vtag">目安</span></div>
-  <a class="vme" href="visit.html">訪問へ戻る</a>
+  <div class="vt">料金シミュレーション<span class="vtag">目安</span></div>
+  <a class="vme" href="visit.html" id="back">物件へ戻る</a>
 </div></header>
 <main class="wrap" id="app"><div id="vload">読み込んでいます…</div></main>
 <script src="calc.js"></script>
+<script>document.getElementById("back").onclick=e=>{if(history.length>1&&document.referrer.includes("visit.html")){e.preventDefault();history.back()}};</script>
 </body>
 </html>

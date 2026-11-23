@@ -1,4 +1,7 @@
-/* 解約金の計算（calc.html）だけで使う。色は visit.css のものを使う */
+/* 解約金・料金シミュレーション（calc.html）だけで使う。色は visit.css のものを使う */
+:root{--good:#2b8a3e}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--good:#69db7c}}
+:root[data-theme="dark"]{--good:#69db7c}
 .cq{margin-top:14px}
 .cq>label,.cq>.ql{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
 .cq select,.cq input[type=month],.cq input[type=number]{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;font-size:16px}
@@ -15,9 +18,14 @@
 .warn{color:var(--hot)}
 .ctot{background:var(--card);border:2px solid var(--au);border-radius:12px;padding:12px 14px;margin-top:16px}
 .ctot .line{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-size:14px}
-.ctot .line b{font-family:var(--mono)}
+.ctot .line b{font-family:var(--mono);white-space:nowrap}
 .ctot .big{border-top:1px solid var(--line);margin-top:6px;padding-top:10px;font-size:16px;font-weight:700}
 .ctot .big b{font-size:22px;color:var(--au)}
-.ctot .net b{color:var(--r-ok)}
 .src{font-size:11px;color:var(--sub);margin-top:16px;line-height:1.7}
 .src a{color:var(--sub)}
+.bname{font-weight:700;font-size:15px;margin-top:12px}
+.bname .small{margin-left:6px}
+.cbox .cq{margin-top:8px}
+.cbox.au{border-color:var(--au)}
+.ctot .good b{color:var(--good)}
+.ctot .bad b,.ctot .neg b{color:var(--hot)!important}

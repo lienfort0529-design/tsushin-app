@@ -16,10 +16,10 @@
 <header><div class="hd">
   <img class="mk" src="logo-mark.png" alt="">
   <div class="vt">料金シミュレーション<span class="vtag">目安</span></div>
-  <a class="vme" href="visit.html" id="back">物件へ戻る</a>
+  <a class="vme" href="visit.html" id="goback">物件へ戻る</a>
 </div></header>
 <main class="wrap" id="app"><div id="vload">読み込んでいます…</div></main>
 <script src="calc.js"></script>
-<script>document.getElementById("back").onclick=e=>{if(history.length>1&&document.referrer.includes("visit.html")){e.preventDefault();history.back()}};</script>
+<script>document.getElementById("goback").onclick=e=>{if(history.length>1&&document.referrer.includes("visit.html")){e.preventDefault();history.back()}};</script>
 </body>
 </html>

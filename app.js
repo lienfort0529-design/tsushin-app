@@ -156,7 +156,7 @@ function setupCounter() {
     const b = document.createElement('button');
     b.className = 'r'; b.style.background = COLORS[r] || '#333';
     b.innerHTML = esc(r) + '<span data-c="' + esc(r) + '">0</span>';
-    b.onclick = () => r === '獲得' ? openApp() : record(r);
+    b.onclick = () => r === '獲得' ? openApp() : record(r, null, b);
     $('grid').appendChild(b);
   });
   $('product').length = 1;
@@ -181,7 +181,9 @@ function render() {
   $('apo').textContent = counts['獲得'] || 0;
   renderGoal(Number($('knock').textContent), counts['獲得'] || 0);
   $('prodToday').textContent = cfg.products.map(p => p + ' ' + (prod[p] || 0)).join('・');
-  $('pending').style.display = queue.length ? 'block' : 'none';
+  // 未送信は、電波がないときか、押してから8秒たっても送れていないときだけ出す（送っている数秒の間は出さない）
+  const stale = queue.length && (!navigator.onLine || queue.some(q => Date.now() - q.ts > 8000));
+  $('pending').style.display = stale ? 'block' : 'none';
   $('pending').textContent = '未送信 ' + queue.length + '件（電波が戻ったら自動で送ります）';
 }
 
@@ -210,18 +212,23 @@ $('appOk').onclick = () => {
   record('獲得', { appDate: appDate, customer: customer, sei: sei, mei: mei, product: product, area: $('appArea').value || area });
 };
 
-function record(result, extra) {
+// 二度押し防止：同じボタンを0.3秒以内にもう一度押したときだけ無視する（別のボタンはすぐ押せる）
+const lastTap = {};
+function record(result, extra, btn) {
   if (busy) return;
+  const now = Date.now();
+  if (lastTap[result] && now - lastTap[result] < 300) return;
+  lastTap[result] = now;
   if (!myGoal()) { openGoal(true); return; }
   if (needArea()) return;
   queue.push(Object.assign({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), name: me, result: result, ts: Date.now(), area: area }, extra));
   saveQueue();
   $('msg').textContent = '記録しました：' + result + (extra && extra.product ? '（' + extra.product + '）' : '') + (area ? '・' + ((extra && extra.area) || area) : '');
   render();
-  // 押し間違い防止に少しの間ほかを押せなくする
-  setBusy(true, '記録中…');
-  setTimeout(() => setBusy(false), 500);
+  // 押したボタンを一瞬光らせる（前は画面全体を0.5秒止めていた）
+  if (btn) { btn.classList.remove('hit'); void btn.offsetWidth; btn.classList.add('hit'); }
   flush();
+  setTimeout(render, 8500); // 8秒たっても送れていなければ「未送信」を出す
 }
 
 // 未送信をまとめて送る。送れた分だけ消す（同じ記録は二重に入らない）
@@ -240,6 +247,7 @@ function flush() {
 }
 setInterval(flush, 20000);
 window.addEventListener('online', flush);
+window.addEventListener('offline', render);
 
 $('undo').onclick = () => ask('直前の記録を取り消しますか？（獲得なら顧客進捗の行も消えます）').then(ok => {
   if (!ok) return;

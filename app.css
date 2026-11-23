@@ -327,3 +327,7 @@ body.admin-only #tabs { grid-template-columns: repeat(5, 1fr); }
 .areabar .seg { margin: 0; }
 .badge.area { background: var(--ink); color: #fff; }
 @media (min-width: 900px) { .filters { grid-template-columns: 2fr 1fr 1.3fr 1fr 1fr 1fr; } }
+/* カウンターのボタンを押したとき一瞬光る */
+@keyframes hit { from { filter: brightness(1.5); transform: scale(.95); } to { filter: none; transform: none; } }
+#grid .r.hit { animation: hit .3s ease-out; }
+@media (prefers-reduced-motion: reduce) { #grid .r.hit { animation: none; } }

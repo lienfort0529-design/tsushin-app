@@ -152,6 +152,7 @@ function draw() {
   </div>
 
   <div class="cq"><span class="ql">比べる期間</span>${seg("years", [["1", "1年"], ["2", "2年"], ["3", "3年"]])}</div>
+  <button type="button" class="save" id="calc">🔄 計算し直す</button>
   <div class="ctot" id="tot"></div>
 
   ${l.note ? `<div class="note"><b>${esc(l.n)}</b>　${esc(l.note)}</div>` : ""}
@@ -169,6 +170,8 @@ function draw() {
   });
   $("#renew").onchange = e => { st.renew = e.target.checked; total(); };
   $("#tk").onchange = e => { st.tekkyo = e.target.checked; total(); };
+  // 「計算し直す」：入れている途中の欄を確定（キーボードを閉じる）して、結果を出し直して見せる
+  $("#calc").onclick = () => { if (document.activeElement) document.activeElement.blur(); KEEP.forEach(id => { if ($("#" + id).value !== "") st.typed[id] = $("#" + id).value; }); total(); const t = $("#tot"); t.classList.remove("flash"); void t.offsetWidth; t.classList.add("flash"); t.scrollIntoView({ behavior: "smooth", block: "center" }); };
   ["mon", "mset", "aum", "aset", "fee", "km", "kl", "tka", "back"].forEach(id => $("#" + id).oninput = e => { st.typed[id] = e.target.value; total(); });
   total();
 }

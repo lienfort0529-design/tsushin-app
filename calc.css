@@ -30,3 +30,7 @@
 .cbox.au{border-color:var(--au)}
 .ctot .good b{color:var(--good)}
 .ctot .bad b,.ctot .neg b{color:var(--hot)!important}
+#calc{margin-top:16px}
+@keyframes calcflash{from{box-shadow:0 0 0 4px var(--au)}to{box-shadow:0 0 0 0 transparent}}
+.ctot.flash{animation:calcflash .8s ease-out}
+@media (prefers-reduced-motion: reduce){.ctot.flash{animation:none}}

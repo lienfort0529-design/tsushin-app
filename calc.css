@@ -10,6 +10,7 @@
 .cbox h2{font-size:15px;margin:0 0 4px}
 .crow{display:grid;grid-template-columns:1fr 8.5em;gap:8px;align-items:center;margin-top:8px}
 .crow label{font-size:13px}
+.crow input.ng{border-color:var(--hot)}
 .crow input{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit;font-size:16px;text-align:right;font-variant-numeric:tabular-nums}
 .yen{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .ck{display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:13px}

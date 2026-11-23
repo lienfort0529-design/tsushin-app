@@ -66,7 +66,16 @@ const qTy = Q.get("ty") || "";
 const AU_ID = { V: "V", VG: "G", G: "G", E: "E", UR: "UR", URG: "UR", GIGA: "GIGA" }[qTy] || "";
 
 // 選んだこと（お客様の情報なので保存しない）
-const st = { line: "docomo", home: "m", era: "new", start: "", renew: false, tekkyo: false, au: AU_ID, years: "2" };
+const st = { line: "docomo", home: "m", era: "new", start: "", renew: false, tekkyo: false, au: AU_ID, years: "2", typed: {} };
+// 自分で入れた額。回線・タイプ・開通月などを選び直すと、目安の額の欄（KEEP 以外）は目安に戻す
+const KEEP = ["mset", "aset", "back"];
+// 「3万」「30,000円」「３００００」「1.5万」を数字にする。読めなければ NaN
+function toNum(t) {
+  t = String(t || "").normalize("NFKC").replace(/[,，円\s]/g, "");
+  if (!t) return 0;
+  const m = t.match(/^(\d+(?:\.\d+)?)(万)?$/);
+  return m ? Math.round(Number(m[1]) * (m[2] ? 10000 : 1)) : NaN;
+}
 
 const line = () => LINES.find(l => l.id === st.line);
 const au = () => AU.find(a => a.id === st.au);
@@ -95,7 +104,8 @@ function draw() {
   const l = line(), a = au(), d = defaults(), k = koujiOf(l), paid = paidN();
   const sel = (id, list, cur) => `<select id="${id}">${list.map(x => `<option value="${x.id}"${x.id === cur ? " selected" : ""}>${esc(x.n)}</option>`).join("")}</select>`;
   const seg = (key, items) => `<div class="seg">${items.map(([v, t]) => `<button type="button" data-k="${key}" data-v="${v}" aria-pressed="${st[key] === v}">${t}</button>`).join("")}</div>`;
-  const num = (id, v, ph) => `<input type="number" inputmode="numeric" min="0" id="${id}" value="${v == null ? "" : v}" placeholder="${ph}">`;
+  // 数字の欄：「3万」「30,000」「３００００」も入れられるよう文字の欄にして、toNum で読む。自分で入れた額は描き直しても残す
+  const num = (id, v, ph) => `<input type="text" inputmode="numeric" autocomplete="off" id="${id}" value="${esc(id in st.typed ? st.typed[id] : v == null ? "" : v)}" placeholder="${ph}">`;
   const ask = t => `<div class="hint warn">${t}</div>`;
   const name = Q.get("n");
 
@@ -149,22 +159,25 @@ function draw() {
   プランやキャンペーン、契約した時期で変わります。<b>正確な額はお客様のマイページか請求書で確かめてもらってください。</b>
   ${l.src ? `<br><a href="${l.src}" target="_blank" rel="noopener">${esc(l.n)}の公式ページ</a>` : ""}${a && a.src ? `${l.src ? "・" : "<br>"}<a href="${a.src}" target="_blank" rel="noopener">auひかり ${esc(a.n)}の公式ページ</a>` : ""}</div>`;
 
-  $("#line").onchange = e => { st.line = e.target.value; st.renew = false; st.tekkyo = false; draw(); };
-  $("#aut").onchange = e => { st.au = e.target.value; draw(); };
-  $("#start").onchange = e => { st.start = e.target.value; if (st.start) st.era = st.start >= "2022-07" ? "new" : "old"; draw(); };
+  const reset = () => { Object.keys(st.typed).forEach(k => { if (!KEEP.includes(k)) delete st.typed[k]; }); };
+  $("#line").onchange = e => { st.line = e.target.value; st.renew = false; st.tekkyo = false; reset(); draw(); };
+  $("#aut").onchange = e => { st.au = e.target.value; reset(); draw(); };
+  $("#start").onchange = e => { st.start = e.target.value; if (st.start) st.era = st.start >= "2022-07" ? "new" : "old"; reset(); draw(); };
   document.querySelectorAll("[data-k]").forEach(b => b.onclick = () => {
     if (b.dataset.k === "years") { st.years = b.dataset.v; document.querySelectorAll('[data-k="years"]').forEach(x => x.setAttribute("aria-pressed", x === b)); total(); return; }
-    st[b.dataset.k] = b.dataset.v; draw();
+    st[b.dataset.k] = b.dataset.v; reset(); draw();
   });
   $("#renew").onchange = e => { st.renew = e.target.checked; total(); };
   $("#tk").onchange = e => { st.tekkyo = e.target.checked; total(); };
-  ["mon", "mset", "aum", "aset", "fee", "km", "kl", "tka", "back"].forEach(id => $("#" + id).oninput = total);
+  ["mon", "mset", "aum", "aset", "fee", "km", "kl", "tka", "back"].forEach(id => $("#" + id).oninput = e => { st.typed[id] = e.target.value; total(); });
   total();
 }
 
+const LABEL = { mon: "今の月額", mset: "今のセット割", aum: "auひかりの月額", aset: "auのセット割", fee: "解約金", km: "工事費の分割", kl: "残りの回数", tka: "撤去工事費", back: "還元" };
 // 結果（数字を打つたびに、ここだけ書き直す）
 function total() {
-  const n = id => { const v = Number($("#" + id).value); return isFinite(v) && v > 0 ? Math.round(v) : 0; };
+  const bad = [];
+  const n = id => { const v = toNum($("#" + id).value); if (isNaN(v)) { bad.push(id); return 0; } return Math.max(0, v); };
   const has = id => $("#" + id).value !== "";
   const nowM = n("mon") - n("mset"), auM = n("aum") - n("aset"), diff = nowM - auM;
   const months = Number(st.years) * 12;
@@ -178,9 +191,11 @@ function total() {
     ${line("1か月の差", yen(Math.abs(diff)) + (diff >= 0 ? " 安くなる" : " 高くなる"), diff >= 0 ? "good" : "bad")}
     ${line(st.years + "年の差（" + months + "か月）", yen(diff * months))}
     ${line("やめるときの費用（解約金・工事費の残り" + (st.tekkyo ? "・撤去" : "") + "）", "−" + yen(cost))}
-    ${back ? line("乗り換えの特典", "＋" + yen(back)) : ""}
+    ${line("乗り換えの特典（還元）", "＋" + yen(back))}
     <div class="line big ${gain >= 0 ? "" : "neg"}"><span>${st.years}年で</span><b class="yen">${gain >= 0 ? yen(gain) + " おトク" : yen(-gain) + " 高くなる"}</b></div>
-    ${miss.length ? `<div class="hint warn">${miss.join("・")}が空なので、0円として計算しています。</div>` : ""}`;
+    ${miss.length ? `<div class="hint warn">${miss.join("・")}が空なので、0円として計算しています。</div>` : ""}
+    ${bad.length ? `<div class="hint warn">読めない額があります（${bad.map(id => LABEL[id]).join("・")}）。数字で入れてください（例 30000・3万）。</div>` : ""}`;
+  document.querySelectorAll("#app input[type=text]").forEach(i => i.classList.toggle("ng", bad.includes(i.id)));
 }
 
 draw();
